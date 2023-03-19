@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Tabs/Windows Stats",
+  "version": "1.0",
+  "description": "Counts the number of open tabs in the browser and displays it in a graph.",
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "/images/tab-counter-icon-16.png",
+      "32": "/images/tab-counter-icon-32.png",
+      "48": "/images/tab-counter-icon-48.png",
+      "128": "/images/tab-counter-icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
