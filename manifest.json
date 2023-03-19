@@ -18,5 +18,11 @@
   },
   "background": {
     "service_worker": "background.js"
+  },
+  "icons":{
+    "16": "/images/tab-counter-icon-16.png",
+    "32": "/images/tab-counter-icon-32.png",
+    "48": "/images/tab-counter-icon-48.png",
+    "128": "/images/tab-counter-icon-128.png"
   }
 }
