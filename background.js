@@ -20,22 +20,22 @@ chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
   });
 });
 
-// this function only runs once when the extension is installed or updated
+// This function only runs once when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(function() {
-  chrome.storage.local.set({'tabCount': 0});
-
-  // retrieve the stored data
   chrome.storage.local.get(null, function(result) {
-    // if the 'totalTabs' property doesn't exist, set it to 0
     let data = result || {};
     data.totalTabs = data.totalTabs || 0;
 
-    // save the updated data
-    chrome.storage.local.set(data);
+    // Initialize tab count to the current number of tabs in the browser
+    chrome.tabs.query({}, function(tabs) {
+      data.tabCount = tabs.length;
+      chrome.action.setBadgeText({text: data.tabCount.toString()});
+      chrome.storage.local.set(data);
+    });
   });
 });
 
-// increment tab count
+// Increment tab count
 chrome.tabs.onCreated.addListener(function(tab) {
   chrome.storage.local.get(null, function(result) {
     let data = result || {};
@@ -44,16 +44,7 @@ chrome.tabs.onCreated.addListener(function(tab) {
   });
 });
 
-
-/*chrome.storage.local.get(null, function(result) {
-  let data = result || {};
-  data[date] = {tabs: tabCount, windows: windowCount};
-
-  //chrome.storage.local.set({totalTabs: data.totalTabs});
-  chrome.storage.local.set({totalTabs: data.totalTabs, [date]: data[date], windows: windowCount});
-});*/
-
-// listen for the message and respond to it
+// Listen for the message and respond to it
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === "countTabs") {
     let tabCount = 0;
@@ -73,13 +64,13 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         data[date] = {tabs: tabCount, windows: windowCount};
 
         chrome.storage.local.set({totalTabs: data.totalTabs, [date]: data[date], windows: windowCount}, function() {
-          // send a response to the popup with the updated data
+          // Send a response to the popup with the updated data
           sendResponse({tabCount: tabCount, windowCount: windowCount, result: result});
         });
       });
     });
 
-    // return true to indicate that the sendResponse callback will be called asynchronously
+    // Return true to indicate that the sendResponse callback will be called asynchronously
     return true;
   }
 });
