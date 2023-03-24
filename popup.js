@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const windowCountElem = document.getElementById('window-count');
   const totalTabsCell = document.getElementById('all-time-tabs');
   const resetButton = document.getElementById('resetButton');
+  const inputDays = document.getElementById('numOfDays');
   const ctx = document.getElementById('chart').getContext('2d');
   let chart;
 
@@ -14,6 +15,11 @@ document.addEventListener('DOMContentLoaded', function() {
       renderChart(response.result);
     });
   }
+  
+  // Add event listener to the input element to update the chart
+  inputDays.addEventListener('change', function() {
+    countTabs();
+  });
 
   // Render the chart using Chart.js
   function renderChart(result) {
@@ -21,9 +27,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let tabCounts = [];
     let windowCounts = [];
     let now = new Date();
-    let numOfDays = 6;
-
-    for (let i = numOfDays; i >= 0; i--) {
+    let numOfDays = parseInt(inputDays.value);
+  
+    for (let i = numOfDays - 1; i >= 0; i--) {
       let date = new Date(now);
       date.setDate(now.getDate() - i);
       dates.push(date.toLocaleDateString());
@@ -42,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function() {
         labels: dates,
         datasets: [{
           type: 'line',
-          label: 'Tab Count',
+          label: 'Tab count',
           data: tabCounts,
           borderColor: 'rgb(26, 115, 232)',
           borderWidth: 2,
@@ -53,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
           hidden: false
         }, {
           type: 'bar',
-          label: 'Window Count',
+          label: 'Window count',
           data: windowCounts,
           borderColor: 'rgb(242, 86, 58)',
           borderWidth: 2,

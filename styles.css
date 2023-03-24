@@ -38,3 +38,7 @@ table td {
     height: 100%;
     width: 100%;
 }
+
+.chartDiv {
+    margin: 10px 0;
+}
