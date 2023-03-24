@@ -1,47 +1,36 @@
 let tabCount = 0;
 let windowCount = 0;
 let totalTabs = 0;
+let data = {};
 
-chrome.tabs.query({}, function(tabs) {
-  tabCount = tabs.length;
-  chrome.action.setBadgeText({text: tabCount.toString()});
-});
+chrome.tabs.onCreated.addListener(updateBadge);
+chrome.tabs.onRemoved.addListener(updateBadge);
+chrome.tabs.onUpdated.addListener(updateBadge);
 
-// Restart the extension when the browser is opened to avoid showing the wrong number
-chrome.runtime.onStartup.addListener(function() {
-  chrome.runtime.reload();
-})
+function updateBadge() {
+  chrome.tabs.query({}, function(tabs) {
+    // Calculate the total number of tabs
+    tabCount = tabs.length;
+    // Set the badge text
+    chrome.action.setBadgeText({text: tabCount.toString()});
 
-// Increment tab count
+    chrome.storage.local.set({tabCount: tabCount});
+  });
+}
+
+// Increment total tab count
 chrome.tabs.onCreated.addListener(function(tab) {
   chrome.storage.local.get(null, function(result) {
-    tabCount++;
-    chrome.action.setBadgeText({text: tabCount.toString()});
-    chrome.storage.local.set({tabCount: tabCount});
-
-    let data = result || {};
+    data = result || {};
     data.totalTabs = (data.totalTabs || 0) + 1;
     chrome.storage.local.set(data);
   });
 });
 
-/*chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
-  chrome.tabs.query({}, function(tabs) {
-    tabCount = tabs.length;
-    chrome.action.setBadgeText({text: tabCount.toString()});
-    chrome.storage.local.set({'tabCount': tabCount});
-  });
-});*/
-chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
-  tabCount--;
-  chrome.action.setBadgeText({text: tabCount.toString()});
-  chrome.storage.local.set({tabCount: tabCount});
-});
-
 // This function only runs once when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(function() {
   chrome.storage.local.get(null, function(result) {
-    let data = result || {};
+    data = result || {};
     data.totalTabs = data.totalTabs || 0;
 
     // Initialize tab count to the current number of tabs in the browser
@@ -56,8 +45,8 @@ chrome.runtime.onInstalled.addListener(function() {
 // Listen for the message and respond to it
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === "countTabs") {
-    let tabCount = 0;
-    let windowCount = 0;
+    tabCount = 0;
+    windowCount = 0;
 
     chrome.windows.getAll({populate: true}, function(windows) {
       windowCount = windows.length;
@@ -69,7 +58,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       let date = new Date().toLocaleDateString();
 
       chrome.storage.local.get(null, function(result) {
-        let data = result || {};
+        data = result || {};
         data[date] = {tabs: tabCount, windows: windowCount};
 
         chrome.storage.local.set({totalTabs: data.totalTabs, [date]: data[date], windows: windowCount}, function() {
