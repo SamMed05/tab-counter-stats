@@ -7,17 +7,35 @@ chrome.tabs.query({}, function(tabs) {
   chrome.action.setBadgeText({text: tabCount.toString()});
 });
 
+// Restart the extension when the browser is opened to avoid showing the wrong number
+chrome.runtime.onStartup.addListener(function() {
+  chrome.runtime.reload();
+})
+
+// Increment tab count
 chrome.tabs.onCreated.addListener(function(tab) {
-  tabCount++;
-  chrome.action.setBadgeText({text: tabCount.toString()});
+  chrome.storage.local.get(null, function(result) {
+    tabCount++;
+    chrome.action.setBadgeText({text: tabCount.toString()});
+    chrome.storage.local.set({tabCount: tabCount});
+
+    let data = result || {};
+    data.totalTabs = (data.totalTabs || 0) + 1;
+    chrome.storage.local.set(data);
+  });
 });
 
-chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
+/*chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
   chrome.tabs.query({}, function(tabs) {
     tabCount = tabs.length;
     chrome.action.setBadgeText({text: tabCount.toString()});
     chrome.storage.local.set({'tabCount': tabCount});
   });
+});*/
+chrome.tabs.onRemoved.addListener(function(tabId, removeInfo) {
+  tabCount--;
+  chrome.action.setBadgeText({text: tabCount.toString()});
+  chrome.storage.local.set({tabCount: tabCount});
 });
 
 // This function only runs once when the extension is installed or updated
@@ -32,15 +50,6 @@ chrome.runtime.onInstalled.addListener(function() {
       chrome.action.setBadgeText({text: data.tabCount.toString()});
       chrome.storage.local.set(data);
     });
-  });
-});
-
-// Increment tab count
-chrome.tabs.onCreated.addListener(function(tab) {
-  chrome.storage.local.get(null, function(result) {
-    let data = result || {};
-    data.totalTabs = (data.totalTabs || 0) + 1;
-    chrome.storage.local.set(data);
   });
 });
 
