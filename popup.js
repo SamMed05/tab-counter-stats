@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   // Add event listener to the input element to update the chart
-  inputDays.addEventListener('change', function() {
+  inputDays.addEventListener('change', function(response) {
+    chrome.storage.local.set({ numOfDays: inputDays.value }); // Store the input value in local storage
     countTabs();
   });
 
@@ -32,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
     for (let i = numOfDays - 1; i >= 0; i--) {
       let date = new Date(now);
       date.setDate(now.getDate() - i);
-      dates.push(date.toLocaleDateString());
+      dates.push(date.toLocaleDateString('en-GB'));
       let data = result[date.toLocaleDateString()] || {tabs: 0, windows: 0};
       tabCounts.push(data.tabs || 0);
       windowCounts.push(data.windows || 0);  
@@ -100,11 +101,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Reset the totalTabs count if the reset button is clicked
     resetButton.addEventListener('click', function() {
       chrome.storage.local.set({totalTabs: 0}, function() {
-        totalTabsCell.innerText = 0;
+        totalTabsCell.textContent = 0;
       });
     });
   }
 
-  // Call the countTabs function to get the initial tab and window count
-  countTabs();
+  // Retrieve the input value from local storage
+  chrome.storage.local.get({ numOfDays }, function(result) {
+    inputDays.value = result.numOfDays;
+    countTabs();
+  });
 });
