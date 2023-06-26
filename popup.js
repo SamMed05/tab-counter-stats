@@ -6,6 +6,8 @@ document.addEventListener("DOMContentLoaded", function () {
   const resetButton = document.getElementById("resetButton");
   const inputDays = document.getElementById("numOfDays");
   const ctx = document.getElementById("chart").getContext("2d");
+  const dateFormatToggle = document.getElementById("dateFormat");
+  let useGBDateFormat = document.getElementById("dateFormat").checked;
   let chart;
 
   // Get the tab and window count and update the UI
@@ -22,6 +24,13 @@ document.addEventListener("DOMContentLoaded", function () {
     countTabs();
   });
 
+  // Add event listener to the date format toggle button
+  dateFormatToggle.addEventListener("change", function (response) {
+    useGBDateFormat = dateFormatToggle.checked;
+    chrome.storage.local.set({ useGBDateFormat: useGBDateFormat });
+    countTabs();
+  });
+
   // Render the chart using Chart.js
   function renderChart(result) {
     let dates = [];
@@ -33,7 +42,11 @@ document.addEventListener("DOMContentLoaded", function () {
     for (let i = numOfDays - 1; i >= 0; i--) {
       let date = new Date(now);
       date.setDate(now.getDate() - i);
-      dates.push(date.toLocaleDateString("en-GB"));
+      dates.push(
+        useGBDateFormat
+          ? date.toLocaleDateString("en-GB")
+          : date.toLocaleDateString()
+      );
       let data = result[date.toLocaleDateString()] || { tabs: 0, windows: 0 };
       tabCounts.push(data.tabs || 0);
       windowCounts.push(data.windows || 0);
@@ -113,5 +126,10 @@ document.addEventListener("DOMContentLoaded", function () {
   chrome.storage.local.get({ numOfDays }, function (result) {
     inputDays.value = result.numOfDays;
     countTabs();
+  });
+
+  chrome.storage.local.get({ useGBDateFormat: false }, function (result) {
+    useGBDateFormat = result.useGBDateFormat;
+    dateFormatToggle.checked = useGBDateFormat;
   });
 });

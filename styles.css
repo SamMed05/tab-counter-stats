@@ -42,3 +42,11 @@ table td {
 .chartDiv {
     margin: 10px 0;
 }
+
+.inputDiv div {
+    display: inline;
+}
+
+.checkboxDiv {
+    margin-left: 5px;
+}

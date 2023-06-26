@@ -34,16 +34,22 @@
       </div>
 
       <div class="inputDiv">
-        <label for="numOfDays">Number of days displayed:</label>
-        <input
-          type="number"
-          id="numOfDays"
-          name="numOfDays"
-          value="7"
-          min="1"
-          max="30"
-          step="1"
-        />
+        <div>
+          <label for="numOfDays">Number of days displayed:</label>
+          <input
+            type="number"
+            id="numOfDays"
+            name="numOfDays"
+            value="7"
+            min="1"
+            max="30"
+            step="1"
+          />
+        </div>
+        <div class="checkboxDiv">
+          <label for="dateFormat">DD/MM/YYYY:</label>
+          <input type="checkbox" id="dateFormat" name="dateFormat" checked />
+        </div>
       </div>
     </div>
   </body>
