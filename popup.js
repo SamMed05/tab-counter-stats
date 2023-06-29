@@ -11,8 +11,8 @@ document.addEventListener("DOMContentLoaded", function () {
   let chart;
 
   // Get the tab and window count and update the UI
-  function countTabs() {
-    chrome.runtime.sendMessage({ action: "countTabs" }, function (response) {
+  function countTabsAndWindows() {
+    chrome.runtime.sendMessage({ action: "getData" }, function (response) {
       updateTable(response.tabCount, response.windowCount, response.result);
       renderChart(response.result);
     });
@@ -21,14 +21,14 @@ document.addEventListener("DOMContentLoaded", function () {
   // Add event listener to the input element to update the chart
   inputDays.addEventListener("change", function (response) {
     chrome.storage.local.set({ numOfDays: inputDays.value }); // Store the input value in local storage
-    countTabs();
+    countTabsAndWindows();
   });
 
   // Add event listener to the date format toggle button
   dateFormatToggle.addEventListener("change", function (response) {
     useGBDateFormat = dateFormatToggle.checked;
     chrome.storage.local.set({ useGBDateFormat: useGBDateFormat });
-    countTabs();
+    countTabsAndWindows();
   });
 
   // Render the chart using Chart.js
@@ -44,8 +44,8 @@ document.addEventListener("DOMContentLoaded", function () {
       date.setDate(now.getDate() - i);
       dates.push(
         useGBDateFormat
-          ? date.toLocaleDateString("en-GB")
-          : date.toLocaleDateString()
+          ? date.toLocaleDateString("en-GB", { month: "2-digit", day: "numeric" }) // or month: "short"
+          : date.toLocaleDateString(undefined, { month: "2-digit", day: "numeric" }) // or month: "short"
       );
       let data = result[date.toLocaleDateString()] || { tabs: 0, windows: 0 };
       tabCounts.push(data.tabs || 0);
@@ -125,9 +125,10 @@ document.addEventListener("DOMContentLoaded", function () {
   // Retrieve the input value from local storage
   chrome.storage.local.get({ numOfDays }, function (result) {
     inputDays.value = result.numOfDays;
-    countTabs();
+    countTabsAndWindows();
   });
 
+  // Retrieve the date format from local storage
   chrome.storage.local.get({ useGBDateFormat: false }, function (result) {
     useGBDateFormat = result.useGBDateFormat;
     dateFormatToggle.checked = useGBDateFormat;

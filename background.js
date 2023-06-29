@@ -1,26 +1,5 @@
 let data = {};
 
-function updateBadge() {
-  chrome.tabs.query({}, function (tabs) {
-    let tabCount = tabs.length;
-    chrome.action.setBadgeText({ text: tabCount.toString() });
-    chrome.storage.local.set({ tabCount: tabCount });
-  });
-}
-
-chrome.tabs.onCreated.addListener(updateBadge);
-chrome.tabs.onRemoved.addListener(updateBadge);
-chrome.tabs.onUpdated.addListener(updateBadge);
-
-// Increment total tab count
-chrome.tabs.onCreated.addListener(function (tab) {
-  chrome.storage.local.get(null, function (result) {
-    data = result;
-    data.totalTabs = (data.totalTabs || 0) + 1;
-    chrome.storage.local.set(data);
-  });
-});
-
 // This function only runs once when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(function () {
   chrome.storage.local.get(null, function (result) {
@@ -30,7 +9,7 @@ chrome.runtime.onInstalled.addListener(function () {
     // Initialize tab count to the current number of tabs in the browser
     chrome.tabs.query({}, function (tabs) {
       data.tabCount = tabs.length;
-      chrome.action.setBadgeText({ text: data.tabCount.toString() });
+      updateBadge();
       chrome.storage.local.set(data);
     });
   });
@@ -38,11 +17,11 @@ chrome.runtime.onInstalled.addListener(function () {
 
 // Listen for the message and respond to it
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
-  if (request.action === "countTabs") {
+  if (request.action === "getData") {
     updateTabAndWindowCounts();
 
-    tabCount = 0;
-    windowCount = 0;
+    let tabCount = 0;
+    let windowCount = 0;
 
     chrome.windows.getAll({ populate: true }, function (windows) {
       windowCount = windows.length;
@@ -95,11 +74,33 @@ function updateTabAndWindowCounts() {
       data = result;
       data[currentDate] = { tabs: tabCount, windows: windowCount };
 
-      // Update the totalTabs count
-      data.totalTabs = (data.totalTabs || 0) + tabCount;
+      // Update the totalTabs count (increment only if tabCount increased)
+      if (tabCount > data.tabCount) {
+        data.totalTabs = (data.totalTabs || 0) + 1;
+      }
 
       // Store the updated data in local storage
       chrome.storage.local.set(data);
     });
   });
 }
+
+function updateBadge() {
+  chrome.tabs.query({}, function (tabs) {
+    let tabCount = tabs.length;
+    chrome.action.setBadgeText({ text: tabCount.toString() });
+    //chrome.storage.local.set({ tabCount: tabCount });
+  });
+}
+
+// Listen for tab and window events to update the badge and trigger counting
+function updateBadgeAndCount() {
+  updateBadge();
+  updateTabAndWindowCounts();
+}
+
+// Listen for tab and window events to update the badge and trigger counting
+chrome.tabs.onCreated.addListener(updateBadgeAndCount);
+chrome.tabs.onRemoved.addListener(updateBadgeAndCount);
+chrome.windows.onCreated.addListener(updateBadgeAndCount);
+chrome.windows.onRemoved.addListener(updateBadgeAndCount);
