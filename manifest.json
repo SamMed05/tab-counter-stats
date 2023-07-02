@@ -4,7 +4,6 @@
   "version": "1.0",
   "description": "Counts the number of open tabs in the browser and displays it in a graph.",
   "permissions": [
-    "tabs",
     "storage"
   ],
   "action": {
