@@ -116,9 +116,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Reset the totalTabs count if the reset button is clicked
     resetButton.addEventListener("click", function () {
-      chrome.storage.local.set({ totalTabs: 0 }, function () {
-        totalTabsCell.textContent = 0;
-      });
+      // Display a confirmation dialog
+      if (confirm("Are you sure you want to reset the total tabs count?")) {
+        chrome.storage.local.set({ totalTabs: 0 }, function () {
+          totalTabsCell.textContent = 0;
+        });
+      }
     });
   }
 
