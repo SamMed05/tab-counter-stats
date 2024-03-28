@@ -50,3 +50,11 @@ table td {
 .checkboxDiv {
     margin-left: 5px;
 }
+
+#numOfDays {
+    width: 38px;
+}
+
+input[type="checkbox"] {
+    margin: 0 5px 0 0;
+}

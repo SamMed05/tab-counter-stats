@@ -85,11 +85,21 @@ function updateTabAndWindowCounts() {
   });
 }
 
+// Function to update the badge
 function updateBadge() {
-  chrome.tabs.query({}, function (tabs) {
-    let tabCount = tabs.length;
-    chrome.action.setBadgeText({ text: tabCount.toString() });
-    //chrome.storage.local.set({ tabCount: tabCount });
+  chrome.storage.local.get({ showTabsNumber: true }, function (result) {
+    const showTabsNumber = result.showTabsNumber;
+    if (showTabsNumber) {
+      chrome.tabs.query({}, function (tabs) {
+        const tabCount = tabs.length;
+        chrome.action.setBadgeText({ text: tabCount.toString() });
+      });
+    } else {
+      chrome.windows.getAll({ populate: true }, function (windows) {
+        const windowCount = windows.length;
+        chrome.action.setBadgeText({ text: windowCount.toString() });
+      });
+    }
   });
 }
 

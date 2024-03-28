@@ -7,7 +7,9 @@ document.addEventListener("DOMContentLoaded", function () {
   const inputDays = document.getElementById("numOfDays");
   const ctx = document.getElementById("chart").getContext("2d");
   const dateFormatToggle = document.getElementById("dateFormat");
-  let useGBDateFormat = document.getElementById("dateFormat").checked;
+  let useGBDateFormat;
+  const tabWindowToggle = document.getElementById("toggleTabWindow");
+  let showTabsNumber;
   let chart;
 
   // Get the tab and window count and update the UI
@@ -19,16 +21,22 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Add event listener to the input element to update the chart
-  inputDays.addEventListener("change", function (response) {
+  inputDays.addEventListener("change", function () {
     chrome.storage.local.set({ numOfDays: inputDays.value }); // Store the input value in local storage
     countTabsAndWindows();
   });
 
   // Add event listener to the date format toggle button
-  dateFormatToggle.addEventListener("change", function (response) {
+  dateFormatToggle.addEventListener("change", function () {
     useGBDateFormat = dateFormatToggle.checked;
     chrome.storage.local.set({ useGBDateFormat: useGBDateFormat });
     countTabsAndWindows();
+  });
+  // Add event listener to the tab/window toggle button
+  tabWindowToggle.addEventListener("change", function () {
+    showTabsNumber = tabWindowToggle.checked;
+    chrome.storage.local.set({ showTabsNumber: showTabsNumber });
+    updateBadge(); // Update badge when the toggle changes
   });
 
   // Render the chart using Chart.js
@@ -112,7 +120,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Update the text content
     tabCountElem.textContent = tabCount;
     windowCountElem.textContent = windowCount;
-    totalTabsCell.innerText = result.totalTabs || 0; // Update the totalTabsCell with the totalTabs count, if it exists
+    totalTabsCell.textContent = result.totalTabs || 0; // Update the totalTabsCell with the totalTabs count, if it exists
 
     // Reset the totalTabs count if the reset button is clicked
     resetButton.addEventListener("click", function () {
@@ -136,4 +144,29 @@ document.addEventListener("DOMContentLoaded", function () {
     useGBDateFormat = result.useGBDateFormat;
     dateFormatToggle.checked = useGBDateFormat;
   });
+
+  // Retrieve the showTabsNumber value from local storage
+  chrome.storage.local.get({ showTabsNumber: true }, function (result) {
+    showTabsNumber = result.showTabsNumber;
+    tabWindowToggle.checked = showTabsNumber;
+    updateBadge(); // Update badge based on initial state
+  });
+
+  // Function to update badge
+  function updateBadge() {
+    chrome.storage.local.get({ showTabsNumber: true }, function (result) {
+      const showTabsNumber = result.showTabsNumber;
+      if (showTabsNumber) {
+        chrome.tabs.query({}, function (tabs) {
+          const tabCount = tabs.length;
+          chrome.action.setBadgeText({ text: tabCount.toString() });
+        });
+      } else {
+        chrome.windows.getAll({ populate: true }, function (windows) {
+          const windowCount = windows.length;
+          chrome.action.setBadgeText({ text: windowCount.toString() });
+        });
+      }
+    });
+  }
 });
