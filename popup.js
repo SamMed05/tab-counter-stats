@@ -232,7 +232,7 @@ document.addEventListener("DOMContentLoaded", function () {
               unit: 'second',
               tooltipFormat: 'MMM d, HH:mm',
               displayFormats: {
-                second: 'HH:mm:ss',
+                second: 'HH:mm',
                 minute: 'HH:mm',
                 hour: 'MMM d, HH:mm',
                 day: 'MMM d',
