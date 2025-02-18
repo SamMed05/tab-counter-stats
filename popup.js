@@ -258,11 +258,32 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Function to save time graph data
+  function saveTimeGraphData(data) {
+    chrome.storage.local.set({ timeGraphData: data });
+  }
+
+  // Function to retrieve time graph data
+  function getTimeGraphData(callback) {
+    chrome.storage.local.get(['timeGraphData'], function(result) {
+      callback(result.timeGraphData || []);
+    });
+  }
+
+  // Update the chart with new data and save it
   function updateChart(range) {
     chrome.runtime.sendMessage({ action: 'getTabData', range: range }, function (response) {
       createChart(response.data);
+      saveTimeGraphData(response.data);
     });
   }
+
+  // Retrieve and use saved data when the popup is opened
+  document.addEventListener("DOMContentLoaded", function () {
+    getTimeGraphData(function(data) {
+      createChart(data);
+    });
+  });
 
   document.getElementById('todayButton').addEventListener('click', function () {
     updateChart('today');

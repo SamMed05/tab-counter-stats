@@ -1,5 +1,4 @@
 let data = {};
-let tabHistory = [];
 
 // This function only runs once when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(function () {
@@ -16,6 +15,18 @@ chrome.runtime.onInstalled.addListener(function () {
   });
   updateBadgeAndCount(); // Ensure we initialize with current tabs data.
 });
+
+// Function to save time graph data
+function saveTimeGraphData(data) {
+  chrome.storage.local.set({ timeGraphData: data });
+}
+
+// Function to retrieve time graph data
+function getTimeGraphData(callback) {
+  chrome.storage.local.get(['timeGraphData'], function(result) {
+    callback(result.timeGraphData || []);
+  });
+}
 
 // Listen for the message and respond to it
 chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
@@ -85,9 +96,12 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
 
-    const filteredData = tabHistory.filter(entry => entry.timestamp >= startDate.getTime());
-
-    sendResponse({ data: filteredData });
+    // Retrieve tabHistory from storage
+    chrome.storage.local.get(['tabHistory'], function(result) {
+      const history = result.tabHistory || [];
+      const filteredData = history.filter(entry => entry.timestamp >= startDate.getTime());
+      sendResponse({ data: filteredData });
+    });
 
     return true; // Will respond asynchronously
   }
@@ -143,15 +157,42 @@ function updateBadgeAndCount() {
   updateTabAndWindowCounts();
 }
 
-// Track tab changes and store the data
+// Remove global tabHistory variable usage and load it from storage on startup:
+chrome.runtime.onStartup.addListener(function() {
+  chrome.storage.local.get(['tabHistory'], function(result) {
+    // Ensure tabHistory is loaded (or default to an empty array)
+    tabHistory = result.tabHistory || [];
+  });
+});
+
+// Modify trackTabChanges to load & update stored tabHistory
 function trackTabChanges() {
   chrome.tabs.query({}, function (tabs) {
     const tabCount = tabs.length;
     const timestamp = Date.now();
-    tabHistory.push({ timestamp, tabCount });
-    chrome.storage.local.set({ tabHistory });
+    chrome.storage.local.get(['tabHistory'], function(result) {
+      let history = result.tabHistory || [];
+      history.push({ timestamp, tabCount });
+      chrome.storage.local.set({ tabHistory: history });
+    });
   });
 }
+
+// Example of saving data when it is updated
+function updateTimeGraphData(newData) {
+  getTimeGraphData(function(existingData) {
+    const updatedData = [...existingData, ...newData];
+    saveTimeGraphData(updatedData);
+  });
+}
+
+// Example of retrieving data when the service worker becomes active
+chrome.runtime.onStartup.addListener(function() {
+  getTimeGraphData(function(data) {
+    // Use the retrieved data to update the time graph
+    createChart(data);
+  });
+});
 
 // Listen for tab and window events to update the badge and trigger counting
 chrome.tabs.onCreated.addListener(trackTabChanges);
