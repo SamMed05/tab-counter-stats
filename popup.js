@@ -7,10 +7,14 @@ document.addEventListener("DOMContentLoaded", function () {
   const inputDays = document.getElementById("numOfDays");
   const ctx = document.getElementById("chart").getContext("2d");
   const dateFormatToggle = document.getElementById("dateFormat");
-  let useGBDateFormat;
   const tabWindowToggle = document.getElementById("toggleTabWindow");
-  let showTabsNumber;
+  const timeCtx = document.getElementById('timeChart').getContext('2d');
+  let stepEnabled = false;
+  let autoScale = false;
+  let useGBDateFormat = false;
+  let showTabsNumber = true;
   let chart;
+  let timeChart;
 
   // Get the tab and window count and update the UI
   function countTabsAndWindows() {
@@ -83,6 +87,10 @@ document.addEventListener("DOMContentLoaded", function () {
       chart.destroy();
     }
 
+    let fillGradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    fillGradient.addColorStop(0, 'rgba(26, 115, 232, 0.5)');
+    fillGradient.addColorStop(1, 'rgba(26, 115, 232, 0)');
+
     chart = new Chart(ctx, {
       data: {
         labels: dates,
@@ -94,7 +102,7 @@ document.addEventListener("DOMContentLoaded", function () {
             borderColor: "rgb(26, 115, 232)",
             borderWidth: 2,
             fill: true,
-            backgroundColor: "rgba(0, 109, 204, 0.3)",
+            backgroundColor: fillGradient,
             pointRadius: 3,
             tension: 0.1,
             hidden: false,
@@ -151,23 +159,29 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  // Retrieve the input value from local storage
-  chrome.storage.local.get({ numOfDays }, function (result) {
-    inputDays.value = result.numOfDays;
-    countTabsAndWindows();
-  });
+  // Retrieve all settings before initializing
+  chrome.storage.local.get({
+    stepEnabled: false,
+    autoScale: false,
+    numOfDays: 7,
+    useGBDateFormat: false,
+    showTabsNumber: true
+  }, function (result) {
+    stepEnabled = result.stepEnabled;
+    autoScale = result.autoScale;
+    document.getElementById('stepToggle').checked = stepEnabled;
+    document.getElementById('autoScaleToggle').checked = autoScale;
 
-  // Retrieve the date format from local storage
-  chrome.storage.local.get({ useGBDateFormat: false }, function (result) {
+    inputDays.value = result.numOfDays;
     useGBDateFormat = result.useGBDateFormat;
     dateFormatToggle.checked = useGBDateFormat;
-  });
 
-  // Retrieve the showTabsNumber value from local storage
-  chrome.storage.local.get({ showTabsNumber: true }, function (result) {
     showTabsNumber = result.showTabsNumber;
     tabWindowToggle.checked = showTabsNumber;
     updateBadge(); // Update badge based on initial state
+
+    countTabsAndWindows(); // Renders the main chart
+    updateChart('today');  // Renders the time chart
   });
 
   // Function to update badge
@@ -187,4 +201,107 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   }
+
+  // Time graph
+  function createChart(data) {
+    if (timeChart) {
+      timeChart.destroy();
+    }
+
+    timeChart = new Chart(timeCtx, {
+      type: 'line',
+      data: {
+        labels: data.map(entry => new Date(entry.timestamp)),
+        datasets: [{
+          label: '',
+          data: data.map(entry => entry.tabCount),
+          borderColor: 'rgb(26, 115, 232)',
+          borderWidth: 1,
+          fill: true,
+          backgroundColor: 'rgba(26, 115, 232, 0.8)', // Solid color
+          pointRadius: 0,
+          tension: 0.1,
+          stepped: stepEnabled ? 'before' : false,
+        }]
+      },
+      options: {
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'second',
+              tooltipFormat: 'MMM d, HH:mm',
+              displayFormats: {
+                second: 'HH:mm:ss',
+                minute: 'HH:mm',
+                hour: 'MMM d, HH:mm',
+                day: 'MMM d',
+                week: 'MMM d',
+                month: 'MMM yyyy',
+                year: 'yyyy'
+              }
+            }
+          },
+          y: {
+            beginAtZero: !autoScale,
+            ticks: {
+              stepSize: 1 // Only integer steps
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }
+    });
+  }
+
+  function updateChart(range) {
+    chrome.runtime.sendMessage({ action: 'getTabData', range: range }, function (response) {
+      createChart(response.data);
+    });
+  }
+
+  document.getElementById('todayButton').addEventListener('click', function () {
+    updateChart('today');
+  });
+
+  document.getElementById('weekButton').addEventListener('click', function () {
+    updateChart('week');
+  });
+
+  document.getElementById('monthButton').addEventListener('click', function () {
+    updateChart('month');
+  });
+
+  document.getElementById('yearButton').addEventListener('click', function () {
+    updateChart('year');
+  });
+
+  document.getElementById('allTimeButton').addEventListener('click', function () {
+    updateChart('allTime');
+  });
+
+  document.getElementById('autoScaleToggle').addEventListener('change', function() {
+    autoScale = this.checked;
+    chrome.storage.local.set({ autoScale });
+    if (timeChart) {
+      timeChart.options.scales.y.beginAtZero = !autoScale;
+      timeChart.update();
+    }
+  });
+
+  document.getElementById('stepToggle').addEventListener('change', function() {
+    stepEnabled = this.checked;
+    chrome.storage.local.set({ stepEnabled });
+    if (timeChart) {
+      timeChart.data.datasets[0].stepped = stepEnabled ? 'before' : false;
+      timeChart.update();
+    }
+  });
+
+  // Initial load
+  updateChart('today');
 });

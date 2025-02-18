@@ -1,4 +1,5 @@
 let data = {};
+let tabHistory = [];
 
 // This function only runs once when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(function () {
@@ -13,6 +14,7 @@ chrome.runtime.onInstalled.addListener(function () {
       chrome.storage.local.set(data);
     });
   });
+  updateBadgeAndCount(); // Ensure we initialize with current tabs data.
 });
 
 // Listen for the message and respond to it
@@ -56,6 +58,38 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
 
     // Return true to indicate that the sendResponse callback will be called asynchronously
     return true;
+  }
+
+  if (request.action === 'getTabData') {
+    const range = request.range;
+    const now = new Date();
+    let startDate;
+
+    switch (range) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        break;
+      case 'allTime':
+        startDate = new Date(0);
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+
+    const filteredData = tabHistory.filter(entry => entry.timestamp >= startDate.getTime());
+
+    sendResponse({ data: filteredData });
+
+    return true; // Will respond asynchronously
   }
 });
 
@@ -109,8 +143,18 @@ function updateBadgeAndCount() {
   updateTabAndWindowCounts();
 }
 
+// Track tab changes and store the data
+function trackTabChanges() {
+  chrome.tabs.query({}, function (tabs) {
+    const tabCount = tabs.length;
+    const timestamp = Date.now();
+    tabHistory.push({ timestamp, tabCount });
+    chrome.storage.local.set({ tabHistory });
+  });
+}
+
 // Listen for tab and window events to update the badge and trigger counting
-chrome.tabs.onCreated.addListener(updateBadgeAndCount);
-chrome.tabs.onRemoved.addListener(updateBadgeAndCount);
-chrome.windows.onCreated.addListener(updateBadgeAndCount);
-chrome.windows.onRemoved.addListener(updateBadgeAndCount);
+chrome.tabs.onCreated.addListener(trackTabChanges);
+chrome.tabs.onRemoved.addListener(trackTabChanges);
+chrome.windows.onCreated.addListener(trackTabChanges);
+chrome.windows.onRemoved.addListener(trackTabChanges);

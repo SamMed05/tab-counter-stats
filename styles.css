@@ -39,9 +39,14 @@ table td {
     width: 100%;
 }
 
-.chartDiv {
+/* .chartDiv {
     margin: 10px 0;
-}
+} */
+
+
+.inputDiv {
+    margin-top: 10px;
+}   
 
 .inputDiv div {
     display: inline;
@@ -73,7 +78,7 @@ input[type="checkbox"] {
     background-color: #e5e5e5;
     border: 1px solid #e5e5e5;
     border-bottom: none;
-    border-radius: 10px 10px 0 0;
+    border-radius: 7px 7px 0 0;
     margin-right: 2px;
 }
 
@@ -92,4 +97,36 @@ input[type="checkbox"] {
 
 .tab-content.active {
     display: block;
+}
+
+.chartOptions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 5px;
+    margin: 10px 0 0 0;
+}
+
+.chartOptions button {
+    font-size: 0.9em;
+    padding: 3px 6px;
+    background-color: #e1edf5;
+    border: 1px solid #1a73e84d;
+    border-radius: 4px;
+}
+
+.chartOptions button:hover{
+    background-color: #1a73e8;
+    color: #fff;
+    transition: all 0.1s;
+}
+
+.chartOptions label {
+    margin-right: 5px;
+}
+
+.timeToggles {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
