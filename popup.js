@@ -39,6 +39,24 @@ document.addEventListener("DOMContentLoaded", function () {
     updateBadge(); // Update badge when the toggle changes
   });
 
+  // Tab switching logic
+  const tabs = document.querySelectorAll(".tab");
+  const tabContents = document.querySelectorAll(".tab-content");
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach(t => t.classList.remove("active"));
+      tabContents.forEach(tc => tc.classList.remove("active"));
+
+      tab.classList.add("active");
+      tabContents[index].classList.add("active");
+    });
+  });
+
+  // Set the first tab as active by default
+  tabs[0].classList.add("active");
+  tabContents[0].classList.add("active");
+
   // Render the chart using Chart.js
   function renderChart(result) {
     let dates = [];

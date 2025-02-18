@@ -58,3 +58,38 @@ table td {
 input[type="checkbox"] {
     margin: 0 5px 0 0;
 }
+
+.tabs {
+    display: flex;
+    cursor: pointer;
+    margin-top: 10px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    background-color: #e5e5e5;
+    border: 1px solid #e5e5e5;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    margin-right: 2px;
+}
+
+.tab.active {
+    background-color: #1a73e8;
+    color: #fff;
+    border-bottom: 1px solid #1a73e8;
+}
+
+.tab-content {
+    display: none;
+    border: 1px solid #e5e5e5;
+    border-radius: 0 0 10px 10px;
+    padding: 10px;
+}
+
+.tab-content.active {
+    display: block;
+}
