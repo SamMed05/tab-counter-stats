@@ -54,6 +54,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
       tab.classList.add("active");
       tabContents[index].classList.add("active");
+
+      if (index === 1) {
+        // Load the second chart only when the second tab is clicked
+        updateChart('today');
+      }
     });
   });
 
@@ -181,7 +186,6 @@ document.addEventListener("DOMContentLoaded", function () {
     updateBadge(); // Update badge based on initial state
 
     countTabsAndWindows(); // Renders the main chart
-    updateChart('today');  // Renders the time chart
   });
 
   // Function to update badge
@@ -277,13 +281,6 @@ document.addEventListener("DOMContentLoaded", function () {
       saveTimeGraphData(response.data);
     });
   }
-
-  // Retrieve and use saved data when the popup is opened
-  document.addEventListener("DOMContentLoaded", function () {
-    getTimeGraphData(function(data) {
-      createChart(data);
-    });
-  });
 
   document.getElementById('todayButton').addEventListener('click', function () {
     updateChart('today');
