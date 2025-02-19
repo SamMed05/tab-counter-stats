@@ -121,7 +121,9 @@ const trackTabChanges = () => {
     chrome.storage.local.get(['tabHistory'], (result) => {
       const history = result.tabHistory || [];
       history.push({ timestamp, tabCount });
-      chrome.storage.local.set({ tabHistory: history });
+      chrome.storage.local.set({ tabHistory: history }, () => {
+         updateBadge();
+      });
     });
   });
 };
