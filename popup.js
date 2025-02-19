@@ -1,98 +1,62 @@
-document.addEventListener("DOMContentLoaded", function () {
-  // Initialize variables and DOM elements
+document.addEventListener("DOMContentLoaded", () => {
+  // Elements initialization
   const tabCountElem = document.getElementById("tab-count");
   const windowCountElem = document.getElementById("window-count");
   const totalTabsCell = document.getElementById("all-time-tabs");
   const resetButton = document.getElementById("resetButton");
   const inputDays = document.getElementById("numOfDays");
   const ctx = document.getElementById("chart").getContext("2d");
+  const timeCtx = document.getElementById("timeChart").getContext("2d");
   const dateFormatToggle = document.getElementById("dateFormat");
   const tabWindowToggle = document.getElementById("toggleTabWindow");
-  const timeCtx = document.getElementById('timeChart').getContext('2d');
-  let stepEnabled = false;
-  let autoScale = false;
-  let useGBDateFormat = false;
-  let showTabsNumber = true;
-  let chart;
-  let timeChart;
-
-  // Get the tab and window count and update the UI
-  function countTabsAndWindows() {
-    chrome.runtime.sendMessage({ action: "getData" }, function (response) {
-      updateTable(response.tabCount, response.windowCount, response.result);
-      renderChart(response.result);
-    });
-  }
-
-  // Add event listener to the input element to update the chart
-  inputDays.addEventListener("change", function () {
-    chrome.storage.local.set({ numOfDays: inputDays.value }); // Store the input value in local storage
-    countTabsAndWindows();
-  });
-
-  // Add event listener to the date format toggle button
-  dateFormatToggle.addEventListener("change", function () {
-    useGBDateFormat = dateFormatToggle.checked;
-    chrome.storage.local.set({ useGBDateFormat: useGBDateFormat });
-    countTabsAndWindows();
-  });
-  // Add event listener to the tab/window toggle button
-  tabWindowToggle.addEventListener("change", function () {
-    showTabsNumber = tabWindowToggle.checked;
-    chrome.storage.local.set({ showTabsNumber: showTabsNumber });
-    updateBadge(); // Update badge when the toggle changes
-  });
-
-  // Tab switching logic
   const tabs = document.querySelectorAll(".tab");
   const tabContents = document.querySelectorAll(".tab-content");
 
-  tabs.forEach((tab, index) => {
-    tab.addEventListener("click", () => {
-      tabs.forEach(t => t.classList.remove("active"));
-      tabContents.forEach(tc => tc.classList.remove("active"));
+  let stepEnabled = false, autoScale = false, useGBDateFormat = false, showTabsNumber = true;
+  let chart, timeChart;
 
-      tab.classList.add("active");
-      tabContents[index].classList.add("active");
-
-      if (index === 1) {
-        // Load the second chart only when the second tab is clicked
-        updateChart('today');
+  // Helper: update badge on popup (delegates to background)
+  const updateBadge = () => {
+    chrome.storage.local.get({ showTabsNumber: true }, (result) => {
+      if (result.showTabsNumber) {
+        chrome.tabs.query({}, (tabs) => {
+          chrome.action.setBadgeText({ text: tabs.length.toString() });
+        });
+      } else {
+        chrome.windows.getAll({ populate: true }, (windows) => {
+          chrome.action.setBadgeText({ text: windows.length.toString() });
+        });
       }
     });
+  };
+
+  // Event: reset total tabs (set only once)
+  resetButton.addEventListener("click", () => {
+    if (confirm("Are you sure you want to reset the total tabs count?")) {
+      chrome.storage.local.set({ totalTabs: 0 }, () => {
+        totalTabsCell.textContent = 0;
+      });
+    }
   });
 
-  // Set the first tab as active by default
-  tabs[0].classList.add("active");
-  tabContents[0].classList.add("active");
-
-  // Render the chart using Chart.js
-  function renderChart(result) {
-    let dates = [];
-    let tabCounts = [];
-    let windowCounts = [];
-    let now = new Date();
-    let numOfDays = parseInt(inputDays.value);
-
+  // Render daily tabs chart
+  const renderChart = (result) => {
+    const now = new Date();
+    const numOfDays = parseInt(inputDays.value);
+    const dates = [], tabCounts = [], windowCounts = [];
     for (let i = numOfDays - 1; i >= 0; i--) {
       let date = new Date(now);
       date.setDate(now.getDate() - i);
-      dates.push(
-        useGBDateFormat
-          ? date.toLocaleDateString("en-GB", { month: "2-digit", day: "numeric" }) // or month: "short"
-          : date.toLocaleDateString(undefined, { month: "2-digit", day: "numeric" }) // or month: "short"
-      );
-      let data = result[date.toLocaleDateString()] || { tabs: 0, windows: 0 };
-      tabCounts.push(data.tabs || 0);
-      windowCounts.push(data.windows || 0);
+      const displayDate = useGBDateFormat 
+        ? date.toLocaleDateString("en-GB", { month: "2-digit", day: "numeric" })
+        : date.toLocaleDateString(undefined, { month: "2-digit", day: "numeric" });
+      dates.push(displayDate);
+      const dayData = result[date.toLocaleDateString()] || { tabs: 0, windows: 0 };
+      tabCounts.push(dayData.tabs || 0);
+      windowCounts.push(dayData.windows || 0);
     }
-
-    // Destroy existing chart instance if it exists
-    if (chart) {
-      chart.destroy();
-    }
-
-    let fillGradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    if (chart) chart.destroy();
+    const fillGradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
     fillGradient.addColorStop(0, 'rgba(26, 115, 232, 0.5)');
     fillGradient.addColorStop(1, 'rgba(26, 115, 232, 0)');
 
@@ -110,7 +74,6 @@ document.addEventListener("DOMContentLoaded", function () {
             backgroundColor: fillGradient,
             pointRadius: 3,
             tension: 0.1,
-            hidden: false,
           },
           {
             type: "bar",
@@ -122,96 +85,32 @@ document.addEventListener("DOMContentLoaded", function () {
             order: 2,
             barThickness: 20,
             borderRadius: 50,
-            hidden: false,
           },
         ],
       },
       options: {
-        scaleShowValues: true,
         responsive: true,
         scales: {
-          x: {
-            ticks: {
-              color: "black",
-            },
-          },
-          y: {
-            beginAtZero: true,
-            ticks: {
-              color: "black",
-            },
-          },
+          x: { ticks: { color: "black" } },
+          y: { beginAtZero: true, ticks: { color: "black" } }
         },
       },
     });
-  }
+  };
 
-  // Update the tab and window count on the UI
-  function updateTable(tabCount, windowCount, result) {
-    // Update the text content
-    tabCountElem.textContent = tabCount;
-    windowCountElem.textContent = windowCount;
-    totalTabsCell.textContent = result.totalTabs || 0; // Update the totalTabsCell with the totalTabs count, if it exists
-
-    // Reset the totalTabs count if the reset button is clicked
-    resetButton.addEventListener("click", function () {
-      // Display a confirmation dialog
-      if (confirm("Are you sure you want to reset the total tabs count?")) {
-        chrome.storage.local.set({ totalTabs: 0 }, function () {
-          totalTabsCell.textContent = 0;
-        });
-      }
+  // Update main UI info (daily chart) after getting data from background
+  const updateMainStats = () => {
+    chrome.runtime.sendMessage({ action: "getData" }, (response) => {
+      tabCountElem.textContent = response.tabCount;
+      windowCountElem.textContent = response.windowCount;
+      totalTabsCell.textContent = response.result.totalTabs || 0;
+      renderChart(response.result);
     });
-  }
+  };
 
-  // Retrieve all settings before initializing
-  chrome.storage.local.get({
-    stepEnabled: false,
-    autoScale: false,
-    numOfDays: 7,
-    useGBDateFormat: false,
-    showTabsNumber: true
-  }, function (result) {
-    stepEnabled = result.stepEnabled;
-    autoScale = result.autoScale;
-    document.getElementById('stepToggle').checked = stepEnabled;
-    document.getElementById('autoScaleToggle').checked = autoScale;
-
-    inputDays.value = result.numOfDays;
-    useGBDateFormat = result.useGBDateFormat;
-    dateFormatToggle.checked = useGBDateFormat;
-
-    showTabsNumber = result.showTabsNumber;
-    tabWindowToggle.checked = showTabsNumber;
-    updateBadge(); // Update badge based on initial state
-
-    countTabsAndWindows(); // Renders the main chart
-  });
-
-  // Function to update badge
-  function updateBadge() {
-    chrome.storage.local.get({ showTabsNumber: true }, function (result) {
-      const showTabsNumber = result.showTabsNumber;
-      if (showTabsNumber) {
-        chrome.tabs.query({}, function (tabs) {
-          const tabCount = tabs.length;
-          chrome.action.setBadgeText({ text: tabCount.toString() });
-        });
-      } else {
-        chrome.windows.getAll({ populate: true }, function (windows) {
-          const windowCount = windows.length;
-          chrome.action.setBadgeText({ text: windowCount.toString() });
-        });
-      }
-    });
-  }
-
-  // Time graph
-  function createChart(data) {
-    if (timeChart) {
-      timeChart.destroy();
-    }
-
+  // Lazy-load the timeChart (second graph) on demand
+  const createTimeChart = (data) => {
+    if (timeChart) timeChart.destroy();
     timeChart = new Chart(timeCtx, {
       type: 'line',
       data: {
@@ -222,7 +121,7 @@ document.addEventListener("DOMContentLoaded", function () {
           borderColor: 'rgb(26, 115, 232)',
           borderWidth: 1,
           fill: true,
-          backgroundColor: 'rgba(26, 115, 232, 0.8)', // Solid color
+          backgroundColor: 'rgba(26, 115, 232, 0.8)',
           pointRadius: 0,
           tension: 0.1,
           stepped: stepEnabled ? 'before' : false,
@@ -244,64 +143,32 @@ document.addEventListener("DOMContentLoaded", function () {
                 month: 'MMM yyyy',
                 year: 'yyyy'
               }
-            }
+            },
+            ticks: { color: "black" }
           },
           y: {
             beginAtZero: !autoScale,
-            ticks: {
-              stepSize: 1 // Only integer steps
-            }
+            ticks: { stepSize: 1, color: "black" }
           }
         },
-        plugins: {
-          legend: {
-            display: false
-          }
-        }
+        plugins: { legend: { display: false } }
       }
     });
-  }
+  };
 
-  // Function to save time graph data
-  function saveTimeGraphData(data) {
-    chrome.storage.local.set({ timeGraphData: data });
-  }
-
-  // Function to retrieve time graph data
-  function getTimeGraphData(callback) {
-    chrome.storage.local.get(['timeGraphData'], function(result) {
-      callback(result.timeGraphData || []);
+  // Request time graph data (only when needed)
+  const updateTimeChart = (range) => {
+    chrome.runtime.sendMessage({ action: 'getTabData', range }, (response) => {
+      createTimeChart(response.data);
     });
-  }
+  };
 
-  // Update the chart with new data and save it
-  function updateChart(range) {
-    chrome.runtime.sendMessage({ action: 'getTabData', range: range }, function (response) {
-      createChart(response.data);
-      saveTimeGraphData(response.data);
-    });
-  }
-
-  document.getElementById('todayButton').addEventListener('click', function () {
-    updateChart('today');
-  });
-
-  document.getElementById('weekButton').addEventListener('click', function () {
-    updateChart('week');
-  });
-
-  document.getElementById('monthButton').addEventListener('click', function () {
-    updateChart('month');
-  });
-
-  document.getElementById('yearButton').addEventListener('click', function () {
-    updateChart('year');
-  });
-
-  document.getElementById('allTimeButton').addEventListener('click', function () {
-    updateChart('allTime');
-  });
-
+  // Handle options update for timeChart toggles (attach once)
+  document.getElementById('todayButton').addEventListener('click', () => updateTimeChart('today'));
+  document.getElementById('weekButton').addEventListener('click', () => updateTimeChart('week'));
+  document.getElementById('monthButton').addEventListener('click', () => updateTimeChart('month'));
+  document.getElementById('yearButton').addEventListener('click', () => updateTimeChart('year'));
+  document.getElementById('allTimeButton').addEventListener('click', () => updateTimeChart('allTime'));
   document.getElementById('autoScaleToggle').addEventListener('change', function() {
     autoScale = this.checked;
     chrome.storage.local.set({ autoScale });
@@ -310,7 +177,6 @@ document.addEventListener("DOMContentLoaded", function () {
       timeChart.update();
     }
   });
-
   document.getElementById('stepToggle').addEventListener('change', function() {
     stepEnabled = this.checked;
     chrome.storage.local.set({ stepEnabled });
@@ -320,6 +186,57 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 
-  // Initial load
-  updateChart('today');
+  // Update on input change events
+  inputDays.addEventListener("change", () => {
+    chrome.storage.local.set({ numOfDays: inputDays.value });
+    updateMainStats();
+  });
+  dateFormatToggle.addEventListener("change", () => {
+    useGBDateFormat = dateFormatToggle.checked;
+    chrome.storage.local.set({ useGBDateFormat });
+    updateMainStats();
+  });
+  tabWindowToggle.addEventListener("change", () => {
+    showTabsNumber = tabWindowToggle.checked;
+    chrome.storage.local.set({ showTabsNumber });
+    updateBadge();
+  });
+
+  // Tab switching logic with lazy-load for second tab (timeChart)
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach(t => t.classList.remove("active"));
+      tabContents.forEach(tc => tc.classList.remove("active"));
+      tab.classList.add("active");
+      tabContents[index].classList.add("active");
+      if (index === 1 && !timeChart) {
+        updateTimeChart('today');
+      }
+    });
+  });
+
+  tabs[0].classList.add("active");
+  tabContents[0].classList.add("active");
+
+  // Initialize settings then update main UI
+  chrome.storage.local.get({
+    stepEnabled: false,
+    autoScale: false,
+    numOfDays: 7,
+    useGBDateFormat: false,
+    showTabsNumber: true
+  }, (result) => {
+    stepEnabled = result.stepEnabled;
+    autoScale = result.autoScale;
+    inputDays.value = result.numOfDays;
+    useGBDateFormat = result.useGBDateFormat;
+    dateFormatToggle.checked = useGBDateFormat;
+    showTabsNumber = result.showTabsNumber;
+    tabWindowToggle.checked = showTabsNumber;
+    // Restore second tab checkbox states so user sees their previous settings
+    document.getElementById('autoScaleToggle').checked = autoScale;
+    document.getElementById('stepToggle').checked = stepEnabled;
+    updateBadge();
+    updateMainStats(); // Renders the daily chart immediately
+  });
 });
