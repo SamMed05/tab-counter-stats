@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const tabWindowToggle = document.getElementById("toggleTabWindow");
   const tabs = document.querySelectorAll(".tab");
   const tabContents = document.querySelectorAll(".tab-content");
+  const timeButtons = document.querySelectorAll(".chartOptions button");
 
   let stepEnabled = false, autoScale = false, useGBDateFormat = false, showTabsNumber = true;
   let chart, timeChart;
@@ -238,5 +239,16 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('stepToggle').checked = stepEnabled;
     updateBadge();
     updateMainStats(); // Renders the daily chart immediately
+  });
+
+  // Set default active button to "Today"
+  document.getElementById('todayButton').classList.add('active');
+
+  // Add event listeners to time interval buttons to manage active state
+  timeButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      timeButtons.forEach(btn => btn.classList.remove('active'));
+      button.classList.add('active');
+    });
   });
 });
