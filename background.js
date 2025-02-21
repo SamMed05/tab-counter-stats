@@ -123,6 +123,7 @@ const trackTabChanges = () => {
       history.push({ timestamp, tabCount });
       chrome.storage.local.set({ tabHistory: history }, () => {
          updateBadge();
+         updateTabAndWindowCounts();
       });
     });
   });

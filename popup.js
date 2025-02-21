@@ -109,9 +109,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  // Helper to map range to time unit
+  const getTimeUnit = (range) => {
+    switch (range) {
+      case 'today': return 'hour';
+      case 'week': 
+      case 'month': return 'day';
+      case 'year': return 'month';
+      case 'allTime': return 'year';
+      default: return 'day';
+    }
+  };
+
   // Lazy-load the timeChart (second graph) on demand
-  const createTimeChart = (data) => {
+  const createTimeChart = (data, range) => {
     if (timeChart) timeChart.destroy();
+    const timeUnit = getTimeUnit(range);
     timeChart = new Chart(timeCtx, {
       type: 'line',
       data: {
@@ -133,14 +146,11 @@ document.addEventListener("DOMContentLoaded", () => {
           x: {
             type: 'time',
             time: {
-              unit: 'second',
+              unit: timeUnit, // use calculated time unit
               tooltipFormat: 'MMM d, HH:mm',
               displayFormats: {
-                second: 'HH:mm',
-                minute: 'HH:mm',
-                hour: 'MMM d, HH:mm',
+                hour: 'HH:mm',
                 day: 'MMM d',
-                week: 'MMM d',
                 month: 'MMM yyyy',
                 year: 'yyyy'
               }
@@ -160,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Request time graph data (only when needed)
   const updateTimeChart = (range) => {
     chrome.runtime.sendMessage({ action: 'getTabData', range }, (response) => {
-      createTimeChart(response.data);
+      createTimeChart(response.data, range);
     });
   };
 
