@@ -1,23 +1,24 @@
 let data = {};
 
-// This function only runs once when the extension is installed or updated
+// On extension install/update, initialize data, tab count and badge
 chrome.runtime.onInstalled.addListener(function () {
   chrome.storage.local.get(null, function (result) {
     data = result;
     data.totalTabs = data.totalTabs || 0;
 
-    // Initialize tab count to the current number of tabs in the browser
+    // Initialize tabCount to current number of tabs
     chrome.tabs.query({}, function (tabs) {
       data.tabCount = tabs.length;
       updateBadge();
       chrome.storage.local.set(data);
     });
   });
-  updateBadgeAndCount(); // Ensure we initialize with current tabs data.
+  updateBadgeAndCount(); // Ensure counts are up-to-date on install/update
 });
 
-// Listen for the message and respond to it
+// Listen for messages from popup or other parts of the extension
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  // Handle main stats data request
   if (request.action === "getData") {
     updateTabAndWindowCounts();
     chrome.windows.getAll({ populate: true }, (windows) => {
@@ -25,10 +26,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const tabCount = windows.reduce((sum, w) => sum + w.tabs.length, 0);
       const today = new Date().toLocaleDateString();
 
+      // Retrieve stored data and update today's record.
       chrome.storage.local.get(null, (result) => {
+        // Using spread operator to copy properties from 'result' 
+        // into a new object while adding/updating the today's key.
         const data = { ...result, [today]: { tabs: tabCount, windows: windowCount } };
-        // Preserve totalTabs from previous value
-        data.totalTabs = result.totalTabs;
+        data.totalTabs = result.totalTabs; // Preserve totalTabs
+
         chrome.storage.local.set({
           totalTabs: data.totalTabs,
           [today]: data[today],
@@ -45,9 +49,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  // Handle request for time-based tab history data
   if (request.action === 'getTabData') {
     const now = new Date();
     let startDate;
+    // Determine start date based on requested range to filter history
     switch (request.range) {
       case 'today':
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -67,6 +73,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       default:
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
+    // Retrieve and filter stored tabHistory data
     chrome.storage.local.get(['tabHistory'], (result) => {
       const history = result.tabHistory || [];
       const filteredData = history.filter(entry => entry.timestamp >= startDate.getTime());
@@ -76,14 +83,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Simplify updateTabAndWindowCounts using Array.reduce
+// Update current tab and window counts and store them
 function updateTabAndWindowCounts() {
   chrome.windows.getAll({ populate: true }, (windows) => {
     const today = new Date().toLocaleDateString();
     const windowCount = windows.length;
     const tabCount = windows.reduce((sum, win) => sum + win.tabs.length, 0);
     chrome.storage.local.get(null, (result) => {
+      // Using spread operator to merge 'result' with today's updated data.
       const data = { ...result, [today]: { tabs: tabCount, windows: windowCount } };
+      // Increment totalTabs only when a new tab is detected
       if (tabCount > result.tabCount) {
         data.totalTabs = (result.totalTabs || 0) + 1;
       }
@@ -92,7 +101,7 @@ function updateTabAndWindowCounts() {
   });
 }
 
-// Function to update the badge
+// Function to update the browser action badge based on user settings
 function updateBadge() {
   chrome.storage.local.get({ showTabsNumber: true }, (result) => {
     if (result.showTabsNumber) {
@@ -107,13 +116,13 @@ function updateBadge() {
   });
 }
 
-// Listen for tab and window events to update the badge and trigger counting
+// Helper to update badge and counts together
 function updateBadgeAndCount() {
   updateBadge();
   updateTabAndWindowCounts();
 }
 
-// One‑time registration for tab/window events
+// Track tab and window events, store history and update UI
 const trackTabChanges = () => {
   chrome.tabs.query({}, (tabs) => {
     const tabCount = tabs.length;

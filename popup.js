@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Elements initialization
+  // Initialize UI elements after DOM loads
   const tabCountElem = document.getElementById("tab-count");
   const windowCountElem = document.getElementById("window-count");
   const totalTabsCell = document.getElementById("all-time-tabs");
@@ -13,10 +13,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const tabContents = document.querySelectorAll(".tab-content");
   const timeButtons = document.querySelectorAll(".chartOptions button");
 
+  // Settings and chart variables
   let stepEnabled = false, autoScale = false, useGBDateFormat = false, showTabsNumber = true;
   let chart, timeChart;
 
-  // Helper: update badge on popup (delegates to background)
+  // Helper: update badge on popup via background operations
   const updateBadge = () => {
     chrome.storage.local.get({ showTabsNumber: true }, (result) => {
       if (result.showTabsNumber) {
@@ -31,7 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Event: reset total tabs (set only once)
+  // Event: reset total tabs count and update the UI
   resetButton.addEventListener("click", () => {
     if (confirm("Are you sure you want to reset the total tabs count?")) {
       chrome.storage.local.set({ totalTabs: 0 }, () => {
@@ -40,7 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Render daily tabs chart
+  // Render daily tabs chart using Chart.js based on stored results
   const renderChart = (result) => {
     const now = new Date();
     const numOfDays = parseInt(inputDays.value);
@@ -48,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
     for (let i = numOfDays - 1; i >= 0; i--) {
       let date = new Date(now);
       date.setDate(now.getDate() - i);
+      // Toggle between GB and default date formats
       const displayDate = useGBDateFormat 
         ? date.toLocaleDateString("en-GB", { month: "2-digit", day: "numeric" })
         : date.toLocaleDateString(undefined, { month: "2-digit", day: "numeric" });
@@ -57,6 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
       windowCounts.push(dayData.windows || 0);
     }
     if (chart) chart.destroy();
+    // Create a gradient fill for the line chart
     const fillGradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
     fillGradient.addColorStop(0, 'rgba(26, 115, 232, 0.5)');
     fillGradient.addColorStop(1, 'rgba(26, 115, 232, 0)');
@@ -99,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Update main UI info (daily chart) after getting data from background
+  // Update main stats by requesting stored data from background
   const updateMainStats = () => {
     chrome.runtime.sendMessage({ action: "getData" }, (response) => {
       tabCountElem.textContent = response.tabCount;
@@ -109,7 +112,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Helper to map range to time unit
+  // Helper to determine time unit for chart based on range
   const getTimeUnit = (range) => {
     switch (range) {
       case 'today': return 'hour';
@@ -121,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Lazy-load the timeChart (second graph) on demand
+  // Create timeChart using Chart.js for the time-based graph
   const createTimeChart = (data, range) => {
     if (timeChart) timeChart.destroy();
     const timeUnit = getTimeUnit(range);
@@ -146,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
           x: {
             type: 'time',
             time: {
-              unit: timeUnit, // use calculated time unit
+              unit: timeUnit, // dynamically set time unit
               tooltipFormat: 'MMM d, HH:mm',
               displayFormats: {
                 hour: 'HH:mm',
@@ -167,19 +170,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Request time graph data (only when needed)
+  // Request data for time-based graph and update timeChart
   const updateTimeChart = (range) => {
     chrome.runtime.sendMessage({ action: 'getTabData', range }, (response) => {
       createTimeChart(response.data, range);
     });
   };
 
-  // Handle options update for timeChart toggles (attach once)
+  // Attach event listeners to time interval buttons and toggles
   document.getElementById('todayButton').addEventListener('click', () => updateTimeChart('today'));
   document.getElementById('weekButton').addEventListener('click', () => updateTimeChart('week'));
   document.getElementById('monthButton').addEventListener('click', () => updateTimeChart('month'));
   document.getElementById('yearButton').addEventListener('click', () => updateTimeChart('year'));
   document.getElementById('allTimeButton').addEventListener('click', () => updateTimeChart('allTime'));
+
   document.getElementById('autoScaleToggle').addEventListener('change', function() {
     autoScale = this.checked;
     chrome.storage.local.set({ autoScale });
@@ -188,6 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
       timeChart.update();
     }
   });
+
   document.getElementById('stepToggle').addEventListener('change', function() {
     stepEnabled = this.checked;
     chrome.storage.local.set({ stepEnabled });
@@ -197,7 +202,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Update on input change events
+  // Update statistics on input change events and update storage settings
   inputDays.addEventListener("change", () => {
     chrome.storage.local.set({ numOfDays: inputDays.value });
     updateMainStats();
@@ -213,7 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateBadge();
   });
 
-  // Tab switching logic with lazy-load for second tab (timeChart)
+  // Tab switching logic: lazy-load timeChart when second tab is accessed
   tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => {
       tabs.forEach(t => t.classList.remove("active"));
@@ -226,10 +231,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Set default active tab on load
   tabs[0].classList.add("active");
   tabContents[0].classList.add("active");
 
-  // Initialize settings then update main UI
+  // Initialize settings from storage then update main UI stats and set toggle states
   chrome.storage.local.get({
     stepEnabled: false,
     autoScale: false,
@@ -244,17 +250,17 @@ document.addEventListener("DOMContentLoaded", () => {
     dateFormatToggle.checked = useGBDateFormat;
     showTabsNumber = result.showTabsNumber;
     tabWindowToggle.checked = showTabsNumber;
-    // Restore second tab checkbox states so user sees their previous settings
+    // Restore second tab toggle states
     document.getElementById('autoScaleToggle').checked = autoScale;
     document.getElementById('stepToggle').checked = stepEnabled;
     updateBadge();
-    updateMainStats(); // Renders the daily chart immediately
+    updateMainStats(); // Initial rendering of daily tabs chart
   });
 
-  // Set default active button to "Today"
+  // Set default active state for "Today" time chart button
   document.getElementById('todayButton').classList.add('active');
 
-  // Add event listeners to time interval buttons to manage active state
+  // Manage active state on time interval button group
   timeButtons.forEach(button => {
     button.addEventListener('click', () => {
       timeButtons.forEach(btn => btn.classList.remove('active'));
