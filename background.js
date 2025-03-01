@@ -6,9 +6,10 @@ chrome.runtime.onInstalled.addListener(function () {
     data = result;
     data.totalTabs = data.totalTabs || 0;
 
-    // Initialize tabCount to current number of tabs
+    // Initialize tabCount and prevTabCount to current number of tabs
     chrome.tabs.query({}, function (tabs) {
       data.tabCount = tabs.length;
+      data.prevTabCount = tabs.length;
       updateBadge();
       chrome.storage.local.set(data);
     });
@@ -89,13 +90,19 @@ function updateTabAndWindowCounts() {
     const today = new Date().toLocaleDateString();
     const windowCount = windows.length;
     const tabCount = windows.reduce((sum, win) => sum + win.tabs.length, 0);
-    chrome.storage.local.get(null, (result) => {
-      // Using spread operator to merge 'result' with today's updated data.
-      const data = { ...result, [today]: { tabs: tabCount, windows: windowCount } };
-      // Increment totalTabs only when a new tab is detected
-      if (tabCount > result.tabCount) {
-        data.totalTabs = (result.totalTabs || 0) + 1;
+    chrome.storage.local.get(['totalTabs','prevTabCount'], (result) => {
+      const prevTabCount = result.prevTabCount || 0;
+      let newTotalTabs = result.totalTabs || 0;
+      if (tabCount > prevTabCount) {
+          newTotalTabs += (tabCount - prevTabCount);
       }
+      // Merge today's data with updated totalTabs and prevTabCount
+      const data = {
+        ...result,
+        [today]: { tabs: tabCount, windows: windowCount },
+        totalTabs: newTotalTabs,
+        prevTabCount: tabCount
+      };
       chrome.storage.local.set(data);
     });
   });

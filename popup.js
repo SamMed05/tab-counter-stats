@@ -237,8 +237,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize settings from storage then update main UI stats and set toggle states
   chrome.storage.local.get({
-    stepEnabled: false,
-    autoScale: false,
+    stepEnabled: true,
+    autoScale: true,
     numOfDays: 7,
     useGBDateFormat: false,
     showTabsNumber: true
