@@ -12,6 +12,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const tabs = document.querySelectorAll(".tab");
   const tabContents = document.querySelectorAll(".tab-content");
   const timeButtons = document.querySelectorAll(".chartOptions button");
+  const exportButton = document.getElementById("exportButton");
+  const importButton = document.getElementById("importButton");
+  const importFileInput = document.getElementById("importFileInput");
 
   // Settings and chart variables
   let stepEnabled = false, autoScale = false, useGBDateFormat = false, showTabsNumber = true;
@@ -266,5 +269,58 @@ document.addEventListener("DOMContentLoaded", () => {
       timeButtons.forEach(btn => btn.classList.remove('active'));
       button.classList.add('active');
     });
+  });
+
+  // --- Export / Import functionality ---
+  exportButton.addEventListener('click', () => {
+    chrome.storage.local.get(null, (allData) => {
+      const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const timestamp = new Date().toISOString().replace(/[:.]/g,'-');
+      a.href = url;
+      a.download = `tab-counter-stats-backup-${timestamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 0);
+    });
+  });
+
+  importButton.addEventListener('click', () => {
+    importFileInput.click();
+  });
+
+  importFileInput.addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const json = JSON.parse(evt.target.result);
+        if (typeof json !== 'object' || Array.isArray(json)) throw new Error('Invalid data format');
+        if (!confirm('Importing will overwrite existing stored data. Continue?')) return;
+        chrome.storage.local.clear(() => {
+          chrome.storage.local.set(json, () => {
+            // Refresh UI after import
+            updateMainStats();
+            updateTimeChart('today');
+            updateBadge();
+            alert('Data imported successfully.');
+          });
+        });
+      } catch (err) {
+        alert('Failed to import: ' + err.message);
+      } finally {
+        importFileInput.value = '';
+      }
+    };
+    reader.onerror = () => {
+      alert('Could not read file');
+      importFileInput.value = '';
+    };
+    reader.readAsText(file);
   });
 });

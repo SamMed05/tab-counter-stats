@@ -9,7 +9,26 @@
   </head>
   <body>
     <div class="statsDiv" style="width: 440px; height: auto">
-      <h2>Tabs/Windows Counter and Stats</h2>
+      <div class="title-bar">
+        <button id="exportButton" class="title-btn" title="Export all data to JSON">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M17 7l-5-5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 2v14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span>Export</span>
+        </button>
+        <h2>Tabs/Windows Counter and Stats</h2>
+        <button id="importButton" class="title-btn" title="Import data (JSON)">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            <path d="M7 11l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M5 21h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span>Import</span>
+        </button>
+        <input type="file" id="importFileInput" accept="application/json" style="display:none" />
+      </div>
 
       <table>
         <thead>

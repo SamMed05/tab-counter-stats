@@ -12,6 +12,43 @@ h2 {
     font-size: 1.3em;
 }
 
+.title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.title-bar h2 {
+    flex: 1;
+    margin: 0;
+}
+
+.title-btn {
+    background: #e1edf5;
+    border: 1px solid #1a73e84d;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.title-btn:hover {
+    background-color: #1a73e8;
+    color: #fff;
+    transition: background .15s;
+}
+
+.title-btn .icon {
+    width: 14px;
+    height: 14px;
+    display: block;
+}
+
 table {
     width: 100%;
     border-collapse: collapse;
