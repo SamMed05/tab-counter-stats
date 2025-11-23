@@ -2,7 +2,7 @@
 
 This is a Chrome extension that keeps track of the number of tabs and windows opened and displays a chart of the data collected over a specific period of time using [Chart.js](https://www.chartjs.org/).
 
-Get it on the Chrome webstore: [🔗 Tabs/Windows Counter and Stats](https://chromewebstore.google.com/detail/tabswindows-counter-and-s/oihkkgbnlimoffcljflafghgmaocambp)
+Get it on the Chrome Web Store: [🔗 Tabs/Windows Counter and Stats](https://chromewebstore.google.com/detail/tabswindows-counter-and-s/oihkkgbnlimoffcljflafghgmaocambp)
 
 ## Preview
 
