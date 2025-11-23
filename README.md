@@ -1,6 +1,8 @@
 # Tabs/Windows Counter and Stats
 
-This is a Chrome extension that keeps track of the number of tabs and windows opened and displays a chart of the data collected  over a specific period of time.
+This is a Chrome extension that keeps track of the number of tabs and windows opened and displays a chart of the data collected over a specific period of time using [Chart.js](https://www.chartjs.org/).
+
+Get it on the Chrome webstore: [🔗 Tabs/Windows Counter and Stats](https://chromewebstore.google.com/detail/tabswindows-counter-and-s/oihkkgbnlimoffcljflafghgmaocambp)
 
 ## Preview
 
@@ -17,3 +19,13 @@ This extension was (originally) developed in cooperation with OpenAI's ChatGPT (
 ## License
 
 The code is licensed under the [MIT License](https://choosealicense.com/licenses/mit/).
+
+## Star History
+
+<a href="https://www.star-history.com/#SamMed05/tab-counter-stats&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=SamMed05/tab-counter-stats&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=SamMed05/tab-counter-stats&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=SamMed05/tab-counter-stats&type=date&legend=top-left" />
+ </picture>
+</a>

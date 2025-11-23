@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const inputDays = document.getElementById("numOfDays");
   const ctx = document.getElementById("chart").getContext("2d");
   const timeCtx = document.getElementById("timeChart").getContext("2d");
-  const dateFormatToggle = document.getElementById("dateFormat");
+  const dateFormatSelect = document.getElementById("dateFormat");
   const tabWindowToggle = document.getElementById("toggleTabWindow");
   const tabs = document.querySelectorAll(".tab");
   const tabContents = document.querySelectorAll(".tab-content");
@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const importFileInput = document.getElementById("importFileInput");
 
   // Settings and chart variables
-  let stepEnabled = false, autoScale = false, useGBDateFormat = false, showTabsNumber = true;
+  let stepEnabled = false, autoScale = false, dateFormatType = 'dd/mm', showTabsNumber = true;
   let chart, timeChart;
 
   // Helper: update badge on popup via background operations
@@ -49,18 +49,64 @@ document.addEventListener("DOMContentLoaded", () => {
     const now = new Date();
     const numOfDays = parseInt(inputDays.value);
     const dates = [], tabCounts = [], windowCounts = [];
-    for (let i = numOfDays - 1; i >= 0; i--) {
-      let date = new Date(now);
-      date.setDate(now.getDate() - i);
-      // Toggle between GB and default date formats
-      const displayDate = useGBDateFormat 
-        ? date.toLocaleDateString("en-GB", { month: "2-digit", day: "numeric" })
-        : date.toLocaleDateString(undefined, { month: "2-digit", day: "numeric" });
-      dates.push(displayDate);
-      const dayData = result[date.toLocaleDateString()] || { tabs: 0, windows: 0 };
-      tabCounts.push(dayData.tabs || 0);
-      windowCounts.push(dayData.windows || 0);
+    
+    if (dateFormatType === 'mmm-yyyy' || dateFormatType === 'yyyy') {
+      // Aggregate data by month or year
+      const aggregatedData = {};
+      
+      for (let i = numOfDays - 1; i >= 0; i--) {
+        let date = new Date(now);
+        date.setDate(now.getDate() - i);
+        const year = date.getFullYear();
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        let key;
+        if (dateFormatType === 'yyyy') {
+          key = `${year}`;
+        } else {
+          key = `${monthNames[date.getMonth()]} ${year}`;
+        }
+        
+        const dayData = result[date.toLocaleDateString()] || { tabs: 0, windows: 0 };
+        
+        if (!aggregatedData[key]) {
+          aggregatedData[key] = { tabs: [], windows: [] };
+        }
+        aggregatedData[key].tabs.push(dayData.tabs || 0);
+        aggregatedData[key].windows.push(dayData.windows || 0);
+      }
+      
+      // Calculate averages for each period
+      Object.keys(aggregatedData).forEach(key => {
+        dates.push(key);
+        const tabAvg = aggregatedData[key].tabs.reduce((a, b) => a + b, 0) / aggregatedData[key].tabs.length;
+        const windowAvg = aggregatedData[key].windows.reduce((a, b) => a + b, 0) / aggregatedData[key].windows.length;
+        tabCounts.push(Math.round(tabAvg));
+        windowCounts.push(Math.round(windowAvg));
+      });
+      
+    } else {
+      // Daily data for DD/MM and MM/DD formats
+      for (let i = numOfDays - 1; i >= 0; i--) {
+        let date = new Date(now);
+        date.setDate(now.getDate() - i);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        
+        let displayDate;
+        if (dateFormatType === 'mm/dd') {
+          displayDate = `${month}/${day}`;
+        } else {
+          displayDate = `${day}/${month}`;
+        }
+        
+        dates.push(displayDate);
+        const dayData = result[date.toLocaleDateString()] || { tabs: 0, windows: 0 };
+        tabCounts.push(dayData.tabs || 0);
+        windowCounts.push(dayData.windows || 0);
+      }
     }
+    
     if (chart) chart.destroy();
     // Create a gradient fill for the line chart
     const fillGradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
@@ -98,7 +144,14 @@ document.addEventListener("DOMContentLoaded", () => {
       options: {
         responsive: true,
         scales: {
-          x: { ticks: { color: "black" } },
+          x: { 
+            ticks: { 
+              color: "black",
+              autoSkip: true,
+              maxRotation: 0,
+              minRotation: 0
+            } 
+          },
           y: { beginAtZero: true, ticks: { color: "black" } }
         },
       },
@@ -210,9 +263,9 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.local.set({ numOfDays: inputDays.value });
     updateMainStats();
   });
-  dateFormatToggle.addEventListener("change", () => {
-    useGBDateFormat = dateFormatToggle.checked;
-    chrome.storage.local.set({ useGBDateFormat });
+  dateFormatSelect.addEventListener("change", () => {
+    dateFormatType = dateFormatSelect.value;
+    chrome.storage.local.set({ dateFormatType });
     updateMainStats();
   });
   tabWindowToggle.addEventListener("change", () => {
@@ -243,14 +296,14 @@ document.addEventListener("DOMContentLoaded", () => {
     stepEnabled: true,
     autoScale: true,
     numOfDays: 7,
-    useGBDateFormat: false,
+    dateFormatType: 'dd/mm',
     showTabsNumber: true
   }, (result) => {
     stepEnabled = result.stepEnabled;
     autoScale = result.autoScale;
     inputDays.value = result.numOfDays;
-    useGBDateFormat = result.useGBDateFormat;
-    dateFormatToggle.checked = useGBDateFormat;
+    dateFormatType = result.dateFormatType;
+    dateFormatSelect.value = dateFormatType;
     showTabsNumber = result.showTabsNumber;
     tabWindowToggle.checked = showTabsNumber;
     // Restore second tab toggle states
