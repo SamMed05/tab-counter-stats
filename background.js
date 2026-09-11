@@ -1,4 +1,109 @@
 let data = {};
+const MAX_RAW_HISTORY = 10000;
+// const MAX_MONTH_POINTS = 2000;
+
+const getBucketTimestamp = (timestamp, range) => {
+  const date = new Date(timestamp);
+  if (range === 'allTime') {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+  }
+  if (range === 'year') {
+    const dayOfWeek = date.getDay() || 7;
+    date.setDate(date.getDate() - dayOfWeek + 1);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  }
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+};
+
+const normalizeHistoryEntry = (entry) => {
+  const timestamp = Number(entry.timestamp);
+  const tabCount = Number(entry.tabCount);
+  if (!Number.isFinite(timestamp) || !Number.isFinite(tabCount)) return null;
+  return { timestamp, tabCount, samples: entry.samples || 0 };
+};
+
+const parseLegacyDate = (value) => {
+  const parts = value.split(/[\/.\-]/).map(Number);
+  if (parts.length === 3 && parts.every(Number.isFinite)) {
+    if (parts[0] > 31) return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+    if (parts[2] > 31) {
+      const monthFirst = navigator.language.toLowerCase().startsWith('en-us');
+      const month = monthFirst ? parts[0] : parts[1];
+      const day = monthFirst ? parts[1] : parts[0];
+      return new Date(parts[2], month - 1, day).getTime();
+    }
+  }
+  return Date.parse(value);
+};
+
+const getLegacyDailyHistory = (storedData) => Object.entries(storedData)
+  .filter(([key, value]) => value && typeof value === 'object' &&
+    Number.isFinite(Number(value.tabs)) && !['tabHistory', 'tabHistoryArchive'].includes(key))
+  .map(([key, value]) => {
+    const timestamp = parseLegacyDate(key);
+    return Number.isFinite(timestamp)
+      ? { timestamp, tabCount: Number(value.tabs), samples: 1 }
+      : null;
+  })
+  .filter(Boolean);
+
+const addToDailyArchive = (archive, entries) => {
+  const buckets = new Map(archive.map(entry => [entry.timestamp, entry]));
+  entries.forEach(entry => {
+    const timestamp = getBucketTimestamp(entry.timestamp, 'month');
+    const bucket = buckets.get(timestamp) || { timestamp, tabCount: 0, samples: 0 };
+    bucket.tabCount += entry.tabCount;
+    bucket.samples += 1;
+    buckets.set(timestamp, bucket);
+  });
+  return Array.from(buckets.values()).sort((a, b) => a.timestamp - b.timestamp);
+};
+
+const aggregateHistory = (entries, range) => {
+  entries = entries.map(normalizeHistoryEntry).filter(Boolean);
+  if (range === 'today' || range === 'week') {
+    return entries
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map(entry => ({
+        timestamp: entry.timestamp,
+        tabCount: entry.samples ? Math.round(entry.tabCount / entry.samples) : entry.tabCount
+      }));
+  }
+
+  // if (range === 'month') {
+  //   const detailedEntries = entries
+  //     .sort((a, b) => a.timestamp - b.timestamp)
+  //     .map(entry => ({
+  //       timestamp: entry.timestamp,
+  //       tabCount: entry.samples ? Math.round(entry.tabCount / entry.samples) : entry.tabCount
+  //     }));
+
+  //   if (detailedEntries.length <= MAX_MONTH_POINTS) return detailedEntries;
+
+  //   const step = (detailedEntries.length - 1) / (MAX_MONTH_POINTS - 1);
+  //   return Array.from({ length: MAX_MONTH_POINTS }, (_, index) => (
+  //     detailedEntries[Math.round(index * step)]
+  //   ));
+  // }
+
+  const buckets = new Map();
+  entries.forEach(entry => {
+    const timestamp = getBucketTimestamp(entry.timestamp, range);
+    const samples = entry.samples || 1;
+    const bucket = buckets.get(timestamp) || { timestamp, total: 0, samples: 0 };
+    // Archived entries already contain the sum of their samples.
+    bucket.total += entry.tabCount;
+    bucket.samples += samples;
+    buckets.set(timestamp, bucket);
+  });
+
+  return Array.from(buckets.values())
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map(bucket => ({
+      timestamp: bucket.timestamp,
+      tabCount: Math.round(bucket.total / bucket.samples)
+    }));
+};
 
 // On extension install/update, initialize data, tab count and badge
 chrome.runtime.onInstalled.addListener(function () {
@@ -21,28 +126,29 @@ chrome.runtime.onInstalled.addListener(function () {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Handle main stats data request
   if (request.action === "getData") {
-    updateTabAndWindowCounts();
-    chrome.windows.getAll({ populate: true }, (windows) => {
+    chrome.windows.getAll({}, (windows) => {
       const windowCount = windows.length;
-      const tabCount = windows.reduce((sum, w) => sum + w.tabs.length, 0);
       const today = new Date().toLocaleDateString();
 
-      // Retrieve stored data and update today's record.
-      chrome.storage.local.get(null, (result) => {
-        // Using spread operator to copy properties from 'result' 
-        // into a new object while adding/updating the today's key.
-        const data = { ...result, [today]: { tabs: tabCount, windows: windowCount } };
-        data.totalTabs = result.totalTabs; // Preserve totalTabs
+      chrome.tabs.query({}, (tabs) => {
+        const tabCount = tabs.length;
+        // Retrieve stored data and update today's record.
+        chrome.storage.local.get(null, (result) => {
+          // Using spread operator to copy properties from 'result'
+          // into a new object while adding/updating the today's key.
+          const data = { ...result, [today]: { tabs: tabCount, windows: windowCount } };
+          data.totalTabs = result.totalTabs; // Preserve totalTabs
 
-        chrome.storage.local.set({
-          totalTabs: data.totalTabs,
-          [today]: data[today],
-          windows: windowCount,
-        }, () => {
-          sendResponse({
-            tabCount,
-            windowCount,
-            result,
+          chrome.storage.local.set({
+            totalTabs: data.totalTabs,
+            [today]: data[today],
+            windows: windowCount,
+          }, () => {
+            sendResponse({
+              tabCount,
+              windowCount,
+              result,
+            });
           });
         });
       });
@@ -74,36 +180,59 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       default:
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     }
-    // Retrieve and filter stored tabHistory data
-    chrome.storage.local.get(['tabHistory'], (result) => {
-      const history = result.tabHistory || [];
+    // Merge recent raw points with the compact archive, then reduce long ranges.
+    chrome.storage.local.get(null, (result) => {
+      const history = [
+        ...(result.tabHistoryArchive || []),
+        ...(result.tabHistory || []),
+        ...getLegacyDailyHistory(result)
+      ];
       const filteredData = history.filter(entry => entry.timestamp >= startDate.getTime());
-      sendResponse({ data: filteredData });
+      sendResponse({ data: aggregateHistory(filteredData, request.range) });
     });
     return true;
   }
 });
 
 // Update current tab and window counts and store them
-function updateTabAndWindowCounts() {
-  chrome.windows.getAll({ populate: true }, (windows) => {
+function updateTabAndWindowCounts(recordHistory = false) {
+  chrome.windows.getAll({}, (windows) => {
     const today = new Date().toLocaleDateString();
     const windowCount = windows.length;
-    const tabCount = windows.reduce((sum, win) => sum + win.tabs.length, 0);
-    chrome.storage.local.get(['totalTabs','prevTabCount'], (result) => {
-      const prevTabCount = result.prevTabCount || 0;
-      let newTotalTabs = result.totalTabs || 0;
-      if (tabCount > prevTabCount) {
-          newTotalTabs += (tabCount - prevTabCount);
-      }
-      // Merge today's data with updated totalTabs and prevTabCount
-      const data = {
-        ...result,
-        [today]: { tabs: tabCount, windows: windowCount },
-        totalTabs: newTotalTabs,
-        prevTabCount: tabCount
-      };
-      chrome.storage.local.set(data);
+    chrome.tabs.query({}, (tabs) => {
+      const tabCount = tabs.length;
+      const keys = recordHistory
+        ? ['totalTabs', 'prevTabCount', 'tabHistory', 'tabHistoryArchive']
+        : ['totalTabs', 'prevTabCount'];
+
+      chrome.storage.local.get(keys, (result) => {
+        const prevTabCount = result.prevTabCount || 0;
+        let newTotalTabs = result.totalTabs || 0;
+        if (tabCount > prevTabCount) {
+          newTotalTabs += tabCount - prevTabCount;
+        }
+
+        const updates = {
+          [today]: { tabs: tabCount, windows: windowCount },
+          totalTabs: newTotalTabs,
+          prevTabCount: tabCount
+        };
+
+        if (recordHistory && tabCount !== prevTabCount) {
+          const history = result.tabHistory || [];
+          history.push({ timestamp: Date.now(), tabCount });
+          const overflow = Math.max(0, history.length - MAX_RAW_HISTORY);
+          updates.tabHistory = history.slice(overflow);
+          if (overflow > 0) {
+            updates.tabHistoryArchive = addToDailyArchive(
+              result.tabHistoryArchive || [],
+              history.slice(0, overflow)
+            );
+          }
+        }
+
+        chrome.storage.local.set(updates);
+      });
     });
   });
 }
@@ -129,20 +258,14 @@ function updateBadgeAndCount() {
   updateTabAndWindowCounts();
 }
 
-// Track tab and window events, store history and update UI
+// Coalesce bursts of tab/window events into one storage update.
+let pendingTabChange;
 const trackTabChanges = () => {
-  chrome.tabs.query({}, (tabs) => {
-    const tabCount = tabs.length;
-    const timestamp = Date.now();
-    chrome.storage.local.get(['tabHistory'], (result) => {
-      const history = result.tabHistory || [];
-      history.push({ timestamp, tabCount });
-      chrome.storage.local.set({ tabHistory: history }, () => {
-         updateBadge();
-         updateTabAndWindowCounts();
-      });
-    });
-  });
+  clearTimeout(pendingTabChange);
+  pendingTabChange = setTimeout(() => {
+    updateTabAndWindowCounts(true);
+    updateBadge();
+  }, 300);
 };
 
 chrome.tabs.onCreated.addListener(trackTabChanges);

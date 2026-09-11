@@ -174,8 +174,8 @@ document.addEventListener("DOMContentLoaded", () => {
       case 'today': return 'hour';
       case 'week': 
       case 'month': return 'day';
-      case 'year': return 'month';
-      case 'allTime': return 'year';
+      case 'year': return 'week';
+      case 'allTime': return 'month';
       default: return 'day';
     }
   };
@@ -194,7 +194,7 @@ document.addEventListener("DOMContentLoaded", () => {
           borderColor: 'rgb(26, 115, 232)',
           borderWidth: 1,
           fill: true,
-          backgroundColor: 'rgba(26, 115, 232, 0.8)',
+          backgroundColor: 'rgba(26, 115, 232, 0.5)',
           pointRadius: 0,
           tension: 0.1,
           stepped: stepEnabled ? 'before' : false,
@@ -210,15 +210,23 @@ document.addEventListener("DOMContentLoaded", () => {
               displayFormats: {
                 hour: 'HH:mm',
                 day: 'MMM d',
+                week: 'MMM d',
                 month: 'MMM yyyy',
                 year: 'yyyy'
               }
             },
-            ticks: { color: "black" }
+            ticks: {
+              color: "black",
+              autoSkip: true,
+              maxTicksLimit: range === 'allTime' ? 12 : 13
+            }
           },
           y: {
             beginAtZero: !autoScale,
-            ticks: { stepSize: 1, color: "black" }
+            ticks: {
+              color: "black",
+              maxTicksLimit: 8
+            }
           }
         },
         plugins: { legend: { display: false } }
@@ -325,6 +333,60 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- Export / Import functionality ---
+  const historyLimit = 5000;
+  const getDayTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  };
+
+  const mergeArchivedHistory = (archives, rawEntries) => {
+    const buckets = new Map();
+    archives.forEach(entry => {
+      const samples = entry.samples || 1;
+      const bucket = buckets.get(entry.timestamp) || { timestamp: entry.timestamp, tabCount: 0, samples: 0 };
+      bucket.tabCount += entry.tabCount * samples;
+      bucket.samples += samples;
+      buckets.set(entry.timestamp, bucket);
+    });
+    rawEntries.forEach(entry => {
+      const timestamp = getDayTimestamp(entry.timestamp);
+      const bucket = buckets.get(timestamp) || { timestamp, tabCount: 0, samples: 0 };
+      bucket.tabCount += entry.tabCount;
+      bucket.samples += 1;
+      buckets.set(timestamp, bucket);
+    });
+    return Array.from(buckets.values()).sort((a, b) => a.timestamp - b.timestamp);
+  };
+
+  const mergeImportedData = (current, imported) => {
+    const currentHistory = Array.isArray(current.tabHistory) ? current.tabHistory : [];
+    const importedHistory = Array.isArray(imported.tabHistory) ? imported.tabHistory : [];
+    const uniqueHistory = new Map();
+    [...currentHistory, ...importedHistory].forEach(entry => {
+      if (typeof entry.timestamp === 'number' && typeof entry.tabCount === 'number') {
+        uniqueHistory.set(`${entry.timestamp}:${entry.tabCount}`, entry);
+      }
+    });
+
+    const combinedHistory = Array.from(uniqueHistory.values())
+      .sort((a, b) => a.timestamp - b.timestamp);
+    const overflow = combinedHistory.length > historyLimit
+      ? combinedHistory.slice(0, combinedHistory.length - historyLimit)
+      : [];
+
+    const merged = { ...imported, ...current };
+    merged.tabHistory = combinedHistory.slice(-historyLimit);
+    merged.tabHistoryArchive = mergeArchivedHistory([
+      ...(Array.isArray(imported.tabHistoryArchive) ? imported.tabHistoryArchive : []),
+      ...(Array.isArray(current.tabHistoryArchive) ? current.tabHistoryArchive : [])
+    ], overflow);
+
+    if (typeof current.totalTabs === 'number' || typeof imported.totalTabs === 'number') {
+      merged.totalTabs = Math.max(current.totalTabs || 0, imported.totalTabs || 0);
+    }
+    return merged;
+  };
+
   exportButton.addEventListener('click', () => {
     chrome.storage.local.get(null, (allData) => {
       const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
@@ -354,14 +416,15 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const json = JSON.parse(evt.target.result);
         if (typeof json !== 'object' || Array.isArray(json)) throw new Error('Invalid data format');
-        if (!confirm('Importing will overwrite existing stored data. Continue?')) return;
-        chrome.storage.local.clear(() => {
-          chrome.storage.local.set(json, () => {
+        if (!confirm('Importing will merge this backup with existing data. Continue?')) return;
+        chrome.storage.local.get(null, (current) => {
+          const mergedData = mergeImportedData(current, json);
+          chrome.storage.local.set(mergedData, () => {
             // Refresh UI after import
             updateMainStats();
             updateTimeChart('today');
             updateBadge();
-            alert('Data imported successfully.');
+            alert('Data imported and merged successfully.');
           });
         });
       } catch (err) {
