@@ -1,6 +1,6 @@
 let data = {};
 const MAX_RAW_HISTORY = 10000;
-// const MAX_MONTH_POINTS = 2000;
+const MAX_MONTH_POINTS = 2000;
 
 const getBucketTimestamp = (timestamp, range) => {
   const date = new Date(timestamp);
@@ -70,21 +70,21 @@ const aggregateHistory = (entries, range) => {
       }));
   }
 
-  // if (range === 'month') {
-  //   const detailedEntries = entries
-  //     .sort((a, b) => a.timestamp - b.timestamp)
-  //     .map(entry => ({
-  //       timestamp: entry.timestamp,
-  //       tabCount: entry.samples ? Math.round(entry.tabCount / entry.samples) : entry.tabCount
-  //     }));
+  if (range === 'month') {
+    const detailedEntries = entries
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map(entry => ({
+        timestamp: entry.timestamp,
+        tabCount: entry.samples ? Math.round(entry.tabCount / entry.samples) : entry.tabCount
+      }));
 
-  //   if (detailedEntries.length <= MAX_MONTH_POINTS) return detailedEntries;
+    if (detailedEntries.length <= MAX_MONTH_POINTS) return detailedEntries;
 
-  //   const step = (detailedEntries.length - 1) / (MAX_MONTH_POINTS - 1);
-  //   return Array.from({ length: MAX_MONTH_POINTS }, (_, index) => (
-  //     detailedEntries[Math.round(index * step)]
-  //   ));
-  // }
+    const step = (detailedEntries.length - 1) / (MAX_MONTH_POINTS - 1);
+    return Array.from({ length: MAX_MONTH_POINTS }, (_, index) => (
+      detailedEntries[Math.round(index * step)]
+    ));
+  }
 
   const buckets = new Map();
   entries.forEach(entry => {

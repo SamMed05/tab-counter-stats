@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
             borderWidth: 2,
             fill: true,
             backgroundColor: fillGradient,
-            pointRadius: 3,
+            pointRadius: 2,
             tension: 0.1,
           },
           {
