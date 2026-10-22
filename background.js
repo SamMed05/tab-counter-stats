@@ -22,30 +22,60 @@ const normalizeHistoryEntry = (entry) => {
   return { timestamp, tabCount, samples: entry.samples || 0 };
 };
 
-const parseLegacyDate = (value) => {
+const parseLegacyDate = (value, monthFirstFallback) => {
   const parts = value.split(/[\/.\-]/).map(Number);
-  if (parts.length === 3 && parts.every(Number.isFinite)) {
-    if (parts[0] > 31) return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
-    if (parts[2] > 31) {
-      const monthFirst = navigator.language.toLowerCase().startsWith('en-us');
-      const month = monthFirst ? parts[0] : parts[1];
-      const day = monthFirst ? parts[1] : parts[0];
-      return new Date(parts[2], month - 1, day).getTime();
+  if (parts.length !== 3 || !parts.every(Number.isInteger)) return NaN;
+
+  let year, month, day;
+  if (parts[0] > 31) {
+    [year, month, day] = parts;
+  } else if (parts[2] > 31) {
+    year = parts[2];
+    if (parts[0] > 12) {
+      [day, month] = parts;
+    } else if (parts[1] > 12) {
+      [month, day] = parts;
+    } else {
+      month = parts[monthFirstFallback ? 0 : 1];
+      day = parts[monthFirstFallback ? 1 : 0];
     }
+  } else {
+    return NaN;
   }
-  return Date.parse(value);
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) return NaN;
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return NaN;
+  }
+  return date.getTime();
 };
 
-const getLegacyDailyHistory = (storedData) => Object.entries(storedData)
-  .filter(([key, value]) => value && typeof value === 'object' &&
-    Number.isFinite(Number(value.tabs)) && !['tabHistory', 'tabHistoryArchive'].includes(key))
-  .map(([key, value]) => {
-    const timestamp = parseLegacyDate(key);
+const getLegacyDailyHistory = (storedData) => {
+  const legacyEntries = Object.entries(storedData)
+    .filter(([key, value]) => value && typeof value === 'object' &&
+      Number.isFinite(Number(value.tabs)) && !['tabHistory', 'tabHistoryArchive'].includes(key));
+  let hasMonthFirstDate = false;
+  let hasDayFirstDate = false;
+  legacyEntries.forEach(([key]) => {
+    const parts = key.split(/[\/.\-]/).map(Number);
+    if (parts.length === 3 && parts[2] > 31) {
+      if (parts[1] > 12) hasMonthFirstDate = true;
+      if (parts[0] > 12) hasDayFirstDate = true;
+    }
+  });
+  const monthFirstFallback = hasMonthFirstDate !== hasDayFirstDate
+    ? hasMonthFirstDate
+    : navigator.language.toLowerCase().startsWith('en-us');
+
+  return legacyEntries.map(([key, value]) => {
+    const timestamp = parseLegacyDate(key, monthFirstFallback);
     return Number.isFinite(timestamp)
       ? { timestamp, tabCount: Number(value.tabs), samples: 1 }
       : null;
   })
-  .filter(Boolean);
+    .filter(Boolean);
+};
 
 const addToDailyArchive = (archive, entries) => {
   const buckets = new Map(archive.map(entry => [entry.timestamp, entry]));
@@ -182,12 +212,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     // Merge recent raw points with the compact archive, then reduce long ranges.
     chrome.storage.local.get(null, (result) => {
-      const history = [
+      const legacyHistory = getLegacyDailyHistory(result);
+      const rawHistory = [
         ...(result.tabHistoryArchive || []),
-        ...(result.tabHistory || []),
-        ...getLegacyDailyHistory(result)
+        ...(result.tabHistory || [])
       ];
-      const filteredData = history.filter(entry => entry.timestamp >= startDate.getTime());
+      const maxObservedTabCount = [
+        ...legacyHistory,
+        ...(result.tabHistory || []),
+        { tabCount: result.tabCount || 0 }
+      ].reduce((max, entry) => Math.max(max, Number(entry.tabCount) || 0), 0);
+      const suspiciousAverageLimit = Math.max(1000, maxObservedTabCount * 10);
+      const history = [
+        ...rawHistory.map(entry => {
+          const samples = Number(entry.samples) || 1;
+          const average = Number(entry.tabCount) / samples;
+          if (samples > 1 && average > suspiciousAverageLimit) {
+            return null;
+          }
+          return entry;
+        }).filter(Boolean),
+        ...legacyHistory
+      ];
+      const nowTimestamp = Date.now();
+      const filteredData = history.filter(entry =>
+        entry.timestamp >= startDate.getTime() && entry.timestamp <= nowTimestamp
+      );
       sendResponse({ data: aggregateHistory(filteredData, request.range) });
     });
     return true;

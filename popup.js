@@ -341,17 +341,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const mergeArchivedHistory = (archives, rawEntries) => {
     const buckets = new Map();
+    const seenArchives = new Set();
     archives.forEach(entry => {
-      const samples = entry.samples || 1;
-      const bucket = buckets.get(entry.timestamp) || { timestamp: entry.timestamp, tabCount: 0, samples: 0 };
-      bucket.tabCount += entry.tabCount * samples;
+      const samples = Number(entry.samples) || 1;
+      const tabCount = Number(entry.tabCount);
+      const timestamp = Number(entry.timestamp);
+      if (!Number.isFinite(timestamp) || !Number.isFinite(tabCount) || !Number.isFinite(samples)) return;
+      const signature = `${timestamp}:${tabCount}:${samples}`;
+      if (seenArchives.has(signature)) return;
+      seenArchives.add(signature);
+
+      const bucket = buckets.get(timestamp) || { timestamp, tabCount: 0, samples: 0 };
+      bucket.tabCount += tabCount;
       bucket.samples += samples;
-      buckets.set(entry.timestamp, bucket);
+      buckets.set(timestamp, bucket);
     });
     rawEntries.forEach(entry => {
-      const timestamp = getDayTimestamp(entry.timestamp);
+      const timestamp = getDayTimestamp(Number(entry.timestamp));
+      const tabCount = Number(entry.tabCount);
+      if (!Number.isFinite(timestamp) || !Number.isFinite(tabCount)) return;
       const bucket = buckets.get(timestamp) || { timestamp, tabCount: 0, samples: 0 };
-      bucket.tabCount += entry.tabCount;
+      bucket.tabCount += tabCount;
       bucket.samples += 1;
       buckets.set(timestamp, bucket);
     });
